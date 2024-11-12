@@ -1,4 +1,85 @@
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-    sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
+* {
+  font-family: "Poppins", sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  margin: 0;
+  padding: 0;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 93vh;
+}
+
+.actionButton {
+  padding: 10px;
+  border-radius: 10px;
+  border-width: 0px;
+}
+
+.actionButton a {
+  color: black;
+  font-weight: 500;
+}
+
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgb(150, 141, 141);
+  padding: 20px;
+}
+
+.navbar_links a {
+  padding: 10px;
+}
+
+.bottomNav {
+  padding: 20px;
+  border-top: 1px solid rgb(150, 141, 141);
+}
+
+.indexPage_aboutSection {
+  background-image: url('./public/about_us_img.jpg');
+  background-size: cover;
+  text-align: center;
+  color: rgb(255, 255, 255);
+  padding: 150px;
+}
+
+.indexPage_exploreSection {
+  text-align: center;
+}
+
+.indexPage_exploreSection_element {
+  padding: 40px;
+}
+
+.indexPage_exploreSection_element_description {
+  padding: 10px;
+  list-style-type: none;
+}
+
+@media only screen and (max-width: 420px) {
+  .navbar {
+    display: block;
+    text-align: center;
+  }
+  
+  .navbar a {
+    padding: 5px;
+  }
+}
+
+@media only screen and (max-width: 660px) {
+  .indexPage_aboutSection h1 {
+    font-size: 25px;
+  }
+  
+  .indexPage_aboutSection {
+    padding: 50px;
+  }
 }

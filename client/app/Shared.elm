@@ -5,12 +5,16 @@ import Effect exposing (Effect)
 import FatalError exposing (FatalError)
 import Html exposing (..)
 import Html.Events
+import Html.Attributes as Hattr exposing (..)
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
 import UrlPath exposing (UrlPath)
 import Route exposing (Route)
 import SharedTemplate exposing (SharedTemplate)
 import View exposing (View)
+
+import Components.Navbar exposing (navbar)
+import Components.BottomNav exposing (bottomNav)
 
 template : SharedTemplate Msg Model Data msg
 template =
@@ -74,15 +78,13 @@ data =
     BackendTask.succeed ()
 
 
-view :
-    Data
-    ->
-        { path : UrlPath
-        , route : Maybe Route
-        }
-    -> Model
-    -> (Msg -> msg)
-    -> View msg
-    -> { body : List (Html msg), title : String }
 view sharedData page model toMsg pageView =
-    { body = [], title = pageView.title }
+    { body =
+        [ div [Hattr.class "app"] 
+            [ navbar
+            , Html.main_ [] pageView.body
+            ]
+        , bottomNav
+        ]
+    , title = pageView.title
+    }

@@ -4,7 +4,8 @@ import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
 import Head
 import Head.Seo as Seo
-import Html
+import Html exposing (..)
+import Html.Attributes as Hattr exposing (..)
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import UrlPath
@@ -57,16 +58,16 @@ head :
 head app =
     Seo.summary
         { canonicalUrlOverride = Nothing
-        , siteName = "elm-pages"
+        , siteName = "MagsView"
         , image =
             { url = [ "images", "icon-png.png" ] |> UrlPath.join |> Pages.Url.fromPath
-            , alt = "elm-pages logo"
+            , alt = "MagsView logo"
             , dimensions = Nothing
             , mimeType = Nothing
             }
-        , description = "Welcome to elm-pages!"
+        , description = "MagsView"
         , locale = Nothing
-        , title = "elm-pages is running"
+        , title = "MagsView"
         }
         |> Seo.website
 
@@ -76,13 +77,27 @@ view :
     -> Shared.Model
     -> View (PagesMsg Msg)
 view app shared =
-    { title = "elm-pages is running"
+    { title = "MagsView"
     , body =
-        [ Html.h1 [] [ Html.text "elm-pages is up and running!" ]
-        , Html.p []
-            [ Html.text <| "The message is: " ++ app.data.message
+        [ div [Hattr.class "indexPage_aboutSection"]
+            [ div [Hattr.class "indexPage_aboutSection_content"] 
+                [ h1 [] [text """A web interface to visualize & explore
+                metagenome-assembled genomes (MAGs), their taxonomic
+                classifications & functional annotations"""]
+                ] 
             ]
-        , Route.Blog__Slug_ { slug = "hello" }
-            |> Route.link [] [ Html.text "My blog post" ]
+        , div [Hattr.class "indexPage_exploreSection"] [
+            div [Hattr.class "indexPage_exploreSection_element"] 
+                [ h2 [] [text "Explore Genomes"]
+                , ul [Hattr.class "indexPage_exploreSection_element_description"] [li [] [text "Download genomes based on filters"], li [] [text "View genome size, completeness, contamination & total coding sequences"]]
+                , button [Hattr.class "actionButton"] [a [Hattr.href "/greet"] [text "Go to Genomes"]]
+                    
+                ],
+            div [Hattr.class "indexPage_exploreSection_element"] 
+                [ h2 [] [text "Explore Taxonomy"]
+                , ul [Hattr.class "indexPage_exploreSection_element_description"] [li [] [text "View taxonomic annotations of MAGs"]]
+                , button [Hattr.class "actionButton"] [a [Hattr.href "/greet"] [text "Go to Taxonomy"]]
+                ]
+        ]
         ]
     }
