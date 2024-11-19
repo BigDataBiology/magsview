@@ -37,6 +37,11 @@
   padding: 10px;
 }
 
+.navbar_title a {
+  text-decoration: none;
+  color: black;
+}
+
 .bottomNav {
   padding: 20px;
   border-top: 1px solid rgb(150, 141, 141);
@@ -48,6 +53,22 @@
   text-align: center;
   color: rgb(255, 255, 255);
   padding: 150px;
+}
+
+.genomesPage_aboutSection {
+  background-image: url('./public/genomes_about_img.jpg');
+  background-size: cover;
+  text-align: center;
+  color: white;
+  padding: 100px;
+}
+
+.taxonomyPage_aboutSection {
+  background-image: url('./public/taxonomy_about_img.jpg');
+  background-size: cover;
+  text-align: center;
+  color: white;
+  padding: 100px;
 }
 
 .indexPage_exploreSection {

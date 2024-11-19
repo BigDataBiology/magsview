@@ -90,13 +90,13 @@ view app shared =
             div [Hattr.class "indexPage_exploreSection_element"] 
                 [ h2 [] [text "Explore Genomes"]
                 , ul [Hattr.class "indexPage_exploreSection_element_description"] [li [] [text "Download genomes based on filters"], li [] [text "View genome size, completeness, contamination & total coding sequences"]]
-                , button [Hattr.class "actionButton"] [a [Hattr.href "/greet"] [text "Go to Genomes"]]
+                , button [Hattr.class "actionButton"] [a [Hattr.href "/genomes"] [text "Go to Genomes"]]
                     
                 ],
             div [Hattr.class "indexPage_exploreSection_element"] 
                 [ h2 [] [text "Explore Taxonomy"]
                 , ul [Hattr.class "indexPage_exploreSection_element_description"] [li [] [text "View taxonomic annotations of MAGs"]]
-                , button [Hattr.class "actionButton"] [a [Hattr.href "/greet"] [text "Go to Taxonomy"]]
+                , button [Hattr.class "actionButton"] [a [Hattr.href "/taxonomy"] [text "Go to Taxonomy"]]
                 ]
         ]
         ]
