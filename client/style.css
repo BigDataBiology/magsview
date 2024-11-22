@@ -63,6 +63,10 @@
   padding: 100px;
 }
 
+.genomesPage_qualityCountsDashboard {
+  padding: 10px;
+}
+
 .taxonomyPage_aboutSection {
   background-image: url('./public/taxonomy_about_img.jpg');
   background-size: cover;

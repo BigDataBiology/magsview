@@ -14,13 +14,14 @@ import Server.Response
 import Shared
 import UrlPath
 import View
+import Html.Events exposing (..)
+import Http
+import Json.Decode exposing (..)
 
-type alias Model =
-    {}
+type Model = Failure | Loading | Success QualityCounts
 
 type Msg
-    = NoOp
-
+    = Waiting | GotQualityCounts (Result Http.Error QualityCounts)
 
 type alias RouteParams =
     {}
@@ -44,7 +45,7 @@ init :
     -> Shared.Model
     -> ( Model, Effect.Effect Msg )
 init app shared =
-    ( {}, Effect.none )
+    ( Loading, Effect.Cmd getQualityCounts )
 
 
 update :
@@ -55,8 +56,14 @@ update :
     -> ( Model, Effect.Effect Msg )
 update app shared msg model =
     case msg of
-        NoOp ->
-            ( model, Effect.none )
+        Waiting ->
+            (Loading, Effect.Cmd getQualityCounts)
+        GotQualityCounts result ->
+            case result of 
+                Ok qualityCounts ->
+                    (Success qualityCounts, Effect.none)
+                Err err -> 
+                    (Failure, Effect.none)
 
 
 subscriptions :
@@ -93,7 +100,8 @@ view :
     -> View.View (PagesMsg.PagesMsg Msg)
 view app shared model =
     { title = "MagsView | Genomes", body = [ 
-        div [Hattr.class "genomesPage_aboutSection"][ h1 [] [text """Explore Genomes"""]]
+        div [Hattr.class "genomesPage_aboutSection"][ h1 [] [text """Explore Genomes"""]],
+        dashboard model
     ] }
 
 
@@ -103,3 +111,42 @@ action :
     -> BackendTask.BackendTask FatalError.FatalError (Server.Response.Response ActionData ErrorPage.ErrorPage)
 action routeParams request =
     BackendTask.succeed (Server.Response.render {})
+    
+type alias QualityCounts = 
+    { low: Int
+    , medium: Int
+    , high: Int
+    }
+
+dashboard : Model -> Html msg
+dashboard model =
+    div [Hattr.class "genomesPage_qualityCountsDashboard"]
+        [ h2 [] [text "Quality Counts"]
+        , viewQualityCounts model
+        ]
+
+viewQualityCounts : Model -> Html msg
+viewQualityCounts model =
+    case model of
+        Failure -> div [] [ text "Could not load Quality Counts. Please Refresh."]
+        Loading -> text "Loading..."
+        Success qualityCounts ->
+            ul []
+                [ li [] [text ("Low Quality Genomes: " ++ (String.fromInt qualityCounts.low))]
+                , li [] [text ("Medium Quality Genomes: " ++ (String.fromInt qualityCounts.medium))]
+                , li [] [text ("High Quality Genomes: " ++ (String.fromInt qualityCounts.high))]
+                ]
+
+getQualityCounts : Cmd Msg
+getQualityCounts =
+    Http.get
+        { url="../../public/qualitycounts.json"
+        , expect = Http.expectJson GotQualityCounts qualityCountsDecoder
+        } 
+
+qualityCountsDecoder : Decoder QualityCounts
+qualityCountsDecoder =
+    map3 QualityCounts 
+        (field "low" int)
+        (field "medium" int)
+        (field "high" int)
