@@ -16,6 +16,8 @@ import View exposing (View)
 import Components.Navbar exposing (navbar)
 import Components.BottomNav exposing (bottomNav)
 
+import Bootstrap.CDN as CDN
+
 template : SharedTemplate Msg Model Data msg
 template =
     { init = init
@@ -80,7 +82,8 @@ data =
 
 view sharedData page model toMsg pageView =
     { body =
-        [ div [Hattr.class "app"] 
+        [ CDN.stylesheet
+        , div [Hattr.class "app"] 
             [ navbar
             , Html.main_ [] pageView.body
             ]
