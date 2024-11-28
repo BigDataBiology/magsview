@@ -15,7 +15,6 @@ import Shared
 import UrlPath
 import View
 import Html.Events exposing (..)
-import Json.Decode exposing (..)
 import BackendTask.File as File
 import Server.Response
 import Csv.Decode as Decode
