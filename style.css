@@ -63,6 +63,14 @@
   padding: 100px;
 }
 
+.genomesPage_dashboard {
+  padding: 20px;
+}
+
+.genomesPage_dashboard ul {
+  list-style: none;
+}
+
 .taxonomyPage_aboutSection {
   background-image: url('./public/taxonomy_about_img.jpg');
   background-size: cover;
