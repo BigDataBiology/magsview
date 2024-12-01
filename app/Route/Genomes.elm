@@ -1,5 +1,6 @@
 module Route.Genomes exposing (ActionData, Data, Model, Msg, RouteParams, route)
 
+import List
 import BackendTask
 import Effect
 import ErrorPage
@@ -75,6 +76,7 @@ type alias Genome =
     , taxonomy : String
     , completeness : String
     , contamination : String
+    , quality : String
     , num_16s_rrna : String
     , num_5s_rrna : String
     , num_23s_rrna : String
@@ -90,6 +92,7 @@ genomeDecoder =
         |> Decode.pipeline (Decode.field "Classification" Decode.string)
         |> Decode.pipeline (Decode.field "Completeness" Decode.string)
         |> Decode.pipeline (Decode.field "Contamination" Decode.string)
+        |> Decode.pipeline (Decode.field "Quality" Decode.string)
         |> Decode.pipeline (Decode.field "16S rRNA" Decode.string)
         |> Decode.pipeline (Decode.field "5S rRNA" Decode.string)
         |> Decode.pipeline (Decode.field "23S rRNA" Decode.string)
@@ -127,7 +130,7 @@ view app shared model =
     { title = "MagsView | Genomes", body = [
         div [Hattr.class "genomesPage_aboutSection"][ h1 [] [text """Explore Genomes"""]],
         case Decode.decodeCsv Decode.FieldNamesFromFirstRow genomeDecoder app.data of
-            Ok genomesList -> genomesTable genomesList
+            Ok genomesList -> div [] [ genomesDashboard genomesList, genomesTable genomesList ]
             Err err -> p [] [text (Debug.toString err)]
     ] }
 
@@ -146,6 +149,7 @@ displayGenomeRow genome =
         , Table.td [] [text genome.completeness]
         , Table.td [] [text genome.contamination]
         , Table.td [] [text genome.genome_size]
+        , Table.td [] [text genome.quality]
         , Table.td [] [text genome.is_representative]
         ]
 
@@ -160,9 +164,27 @@ genomesTable genomesList =
                 , Table.th [] [ text "Completeness" ]
                 , Table.th [] [ text "Contamination" ]
                 , Table.th [] [ text "Genome Size" ]
+                , Table.th [] [ text "Quality" ]
                 , Table.th [] [ text "Representative" ]
                 ]
             , tbody =
                 Table.tbody [] (List.map displayGenomeRow genomesList)
             }
         ]
+
+genomesDashboard : List Genome -> Html msg
+genomesDashboard genomesList =
+    div [Hattr.class "genomesPage_dashboard"] 
+        [ div [Hattr.class "genomesPage_dashboard_qualityCounts"] 
+            [ h2 [] [text "Quality Counts"]
+            , ul [] 
+                [ li [ Hattr.style "color" "red" ] [text ("Low Quality Genomes: " ++ Debug.toString (getQualityCount genomesList "low-quality"))]
+                , li [ Hattr.style "color" "orange" ] [text ("Medium Quality Genomes: " ++ Debug.toString (getQualityCount genomesList "medium-quality"))]
+                , li [ Hattr.style "color" "green" ] [text ("High Quality Genomes: " ++ Debug.toString (getQualityCount genomesList "high-quality"))]
+                ]
+            ]
+        ]
+        
+getQualityCount : List Genome -> String -> Int
+getQualityCount genomesList quality =
+    List.length (List.filter (\a -> a.quality == quality) genomesList)
