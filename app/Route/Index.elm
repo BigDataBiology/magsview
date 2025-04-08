@@ -82,7 +82,5 @@ view app shared =
         , Html.p []
             [ Html.text <| "The message is: " ++ app.data.message
             ]
-        , Route.Blog__Slug_ { slug = "hello" }
-            |> Route.link [] [ Html.text "My blog post" ]
         ]
     }
