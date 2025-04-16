@@ -32,7 +32,6 @@ template =
 
 type Msg
     = SharedMsg SharedMsg
-    | MenuClicked
 
 
 type alias Data = List MAG
@@ -42,8 +41,7 @@ type SharedMsg
 
 
 type alias Model =
-    { showMenu : Bool
-    }
+    ()
 
 
 init :
@@ -60,7 +58,7 @@ init :
             }
     -> ( Model, Effect Msg )
 init flags maybePagePath =
-    ( { showMenu = False }
+    ( ()
     , Effect.none
     )
 
@@ -70,9 +68,6 @@ update msg model =
     case msg of
         SharedMsg globalMsg ->
             ( model, Effect.none )
-
-        MenuClicked ->
-            ( { model | showMenu = not model.showMenu }, Effect.none )
 
 
 subscriptions : UrlPath -> Model -> Sub Msg
@@ -105,27 +100,6 @@ view sharedData page model toMsg pageView =
     { body =
         [ CDN.stylesheet
         , CDN.fontAwesome
-        , Html.nav []
-            [ Html.button
-                [ Html.Events.onClick MenuClicked ]
-                [ Html.text
-                    (if model.showMenu then
-                        "Close Menu"
-
-                     else
-                        "Open Menu"
-                    )
-                ]
-            , if model.showMenu then
-                Html.ul []
-                    [ Html.li [] [ Html.text "Menu item 1" ]
-                    , Html.li [] [ Html.text "Menu item 2" ]
-                    ]
-
-              else
-                Html.text ""
-            ]
-            |> Html.map toMsg
         , Html.main_ [] pageView.body
         ]
     , title = pageView.title
