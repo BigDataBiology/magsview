@@ -14,11 +14,13 @@ import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
 import Server.Request as Request exposing (Request)
 import Server.Response as Response exposing (Response)
 import Shared
+import Effect
 import View exposing (View)
 
 
 type alias Model =
-    {}
+    { qualityFilter : Maybe String
+    }
 
 
 type alias Msg =
@@ -29,28 +31,29 @@ type alias RouteParams =
     {}
 
 
-route : StatelessRoute RouteParams Data ActionData
+route : StatefulRoute RouteParams Data ActionData Model Msg
 route =
     RouteBuilder.preRender
         { head = head
         , data = data
         , pages = BackendTask.succeed [{}]
         }
-        |> RouteBuilder.buildNoState { view = view }
+        |> RouteBuilder.buildWithLocalState
+        { init = \_ _ -> ({ qualityFilter = Nothing }, Effect.none)
+        , subscriptions = (\rp u sm m -> Sub.none)
+        , update = (\_ sm msg m -> (m, Effect.none))
+        , view = view
+        }
 
 
-type alias Data =
-    { name : String
-    }
-
+type alias Data = Shared.Data
 
 type alias ActionData =
     {}
 
 
 data : RouteParams -> BackendTask FatalError Data
-data routeParams =
-    BackendTask.succeed { name = "TODO" }
+data routeParams = Shared.template.data
 
 
 head :
@@ -76,12 +79,14 @@ head app =
 view :
     App Data ActionData RouteParams
     -> Shared.Model
+    -> Model
     -> View (PagesMsg Msg)
-view app shared =
-    { title = "Greetings"
+view app shared model =
+    { title = "Genome browser"
     , body =
         [ Html.div []
-            [ Html.text ("Hello " ++ app.data.name)
+            [ Html.text
+                ("Hello " ++ (app.data |> List.length |>  String.fromInt))
             ]
         ]
     }

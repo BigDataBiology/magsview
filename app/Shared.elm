@@ -1,6 +1,7 @@
 module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
 
 import BackendTask exposing (BackendTask)
+import BackendTask.File
 import Effect exposing (Effect)
 import FatalError exposing (FatalError)
 import Html exposing (Html)
@@ -11,7 +12,10 @@ import UrlPath exposing (UrlPath)
 import Route exposing (Route)
 import SharedTemplate exposing (SharedTemplate)
 import View exposing (View)
+import Csv.Decode as Decode
 
+import DataModel exposing (MAG)
+import LoadData exposing (loadData)
 
 template : SharedTemplate Msg Model Data msg
 template =
@@ -29,9 +33,7 @@ type Msg
     | MenuClicked
 
 
-type alias Data =
-    ()
-
+type alias Data = List MAG
 
 type SharedMsg
     = NoOp
@@ -78,8 +80,14 @@ subscriptions _ _ =
 
 data : BackendTask FatalError Data
 data =
-    BackendTask.succeed ()
-
+    BackendTask.File.rawFile "content/mags.csv"
+        |> BackendTask.allowFatal
+        |>  BackendTask.andThen (\csv -> case loadData csv of
+            Ok loaded ->
+                BackendTask.succeed loaded
+            Err err ->
+                BackendTask.fail (FatalError.fromString ("Failed to load data: " ++ Decode.errorToString err))
+        )
 
 view :
     Data
