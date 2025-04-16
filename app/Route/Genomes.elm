@@ -165,6 +165,17 @@ view app shared model =
                 |> List.filter (\s -> String.length s > 3)
                 |> List.head
                 |> Maybe.withDefault ""
+        taxonomyHeader =
+            Table.th
+                [
+                ]
+                [ Html.a [HtmlAttr.href "#"
+                    , HE.onClick (PagesMsg.fromMsg <| SetSortOrder ByTaxonomy)
+                    ] [ Html.text "Taxonomy (GTDB)" ]
+                , Html.a [HtmlAttr.href "#"
+                    , HE.onClick (PagesMsg.fromMsg ToggleShowFullTaxonomy)
+                    ] [ Html.text (if model.showFullTaxonomy then " [collapse]" else " [expand]") ]
+                ]
     in
         { title = "Genome browser"
         , body =
@@ -191,20 +202,12 @@ view app shared model =
                         , HE.onInput (PagesMsg.fromMsg << UpdateTaxonomyFilter)
                         ] []
                     ]
-                , Html.p []
-                    [ Html.text "Show full taxonomy: "
-                    , Html.input
-                        [ HtmlAttr.type_ "checkbox"
-                        , HtmlAttr.checked model.showFullTaxonomy
-                        , HE.onClick (PagesMsg.fromMsg ToggleShowFullTaxonomy)
-                        ] []
-                    ]
                 ]
             , Grid.simpleRow [ Grid.col [ ] [Table.table
                 { options = [ Table.striped, Table.hover, Table.responsive ]
                 , thead =  Table.simpleThead
                     [ theader ById "MAG ID"
-                    , theader ByTaxonomy "Taxonomy (GTDB)"
+                    , taxonomyHeader
                     , theader ByCompleteness "Completeness"
                     , theader ByContamination "Contamination"
                     ]
