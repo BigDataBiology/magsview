@@ -1,4 +1,4 @@
-module Route.Greet exposing (ActionData, Data, Model, Msg, route)
+module Route.Genomes exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.Http
@@ -31,16 +31,16 @@ type alias RouteParams =
 
 route : StatelessRoute RouteParams Data ActionData
 route =
-    RouteBuilder.serverRender
+    RouteBuilder.preRender
         { head = head
         , data = data
-        , action = \_ _ -> BackendTask.fail (FatalError.fromString "No action.")
+        , pages = BackendTask.succeed [{}]
         }
         |> RouteBuilder.buildNoState { view = view }
 
 
 type alias Data =
-    { name : Maybe String
+    { name : String
     }
 
 
@@ -48,24 +48,9 @@ type alias ActionData =
     {}
 
 
-data : RouteParams -> Request -> BackendTask FatalError (Response Data ErrorPage)
-data routeParams request =
-    case request |> Request.queryParam "name" of
-        Just name ->
-            BackendTask.Http.getJson "http://worldtimeapi.org/api/timezone/America/Los_Angeles"
-                (Decode.field "utc_datetime" Decode.string)
-                |> BackendTask.allowFatal
-                |> BackendTask.map
-                    (\dateTimeString ->
-                        Response.render
-                            { name = Just dateTimeString }
-                    )
-
-        Nothing ->
-            BackendTask.succeed
-                (Response.render
-                    { name = Nothing }
-                )
+data : RouteParams -> BackendTask FatalError Data
+data routeParams =
+    BackendTask.succeed { name = "TODO" }
 
 
 head :
@@ -96,12 +81,7 @@ view app shared =
     { title = "Greetings"
     , body =
         [ Html.div []
-            [ case app.data.name of
-                Just name ->
-                    Html.text ("Hello " ++ name)
-
-                Nothing ->
-                    Html.text "Hello, I didn't find your name"
+            [ Html.text ("Hello " ++ app.data.name)
             ]
         ]
     }
