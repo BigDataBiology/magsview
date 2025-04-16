@@ -36,15 +36,25 @@ type SortOrder =
 type alias Model =
     { qualityFilter : Maybe String
     , sortOrder : SortOrder
+    , repsOnly : Bool
+    , taxonomyFilter : String
+
+    , showFullTaxonomy : Bool
     }
 
 model0 =
     { qualityFilter = Nothing
     , sortOrder = ById
+    , repsOnly = False
+    , taxonomyFilter = ""
+    , showFullTaxonomy = False
     }
 
 type Msg =
     SetSortOrder SortOrder
+    | ToggleRepsOnly
+    | UpdateTaxonomyFilter String
+    | ToggleShowFullTaxonomy
 
 type alias RouteParams =
     {}
@@ -80,9 +90,19 @@ update :
     -> Msg
     -> Model
     -> (Model, Effect Msg)
-update _ sm msg model = case msg of
-    SetSortOrder order ->
-        ( { model | sortOrder = order }
+update _ sm msg model =
+    let
+        nmodel = case msg of
+            SetSortOrder order ->
+                { model | sortOrder = order }
+            ToggleRepsOnly ->
+                { model | repsOnly = not model.repsOnly }
+            UpdateTaxonomyFilter filter ->
+                { model | taxonomyFilter = filter }
+            ToggleShowFullTaxonomy ->
+                { model | showFullTaxonomy = not model.showFullTaxonomy }
+    in
+        ( nmodel
         , Effect.none
         )
 
@@ -127,10 +147,24 @@ view app shared model =
                     ByContamination ->
                         ("", t.contamination)
                         )
+            |> List.filter (\t -> (not model.repsOnly) || t.isRepresentative)
+            |> List.filter (\t -> String.contains model.taxonomyFilter (String.toLower t.taxonomy))
+
         theader sortO h =
                 Table.th
                     [ Table.cellAttr <| HE.onClick (PagesMsg.fromMsg <| SetSortOrder sortO)
                     ] [ Html.a [HtmlAttr.href "#" ] [ Html.text h ] ]
+        maybeSimplifyTaxonomy =
+            if model.showFullTaxonomy then
+                (\x -> x)
+            else
+                simplifyTaxonomy
+        simplifyTaxonomy t =
+            String.split ";" t
+                |> List.reverse
+                |> List.filter (\s -> String.length s > 3)
+                |> List.head
+                |> Maybe.withDefault ""
     in
         { title = "Genome browser"
         , body =
@@ -138,11 +172,35 @@ view app shared model =
                 [ Html.h1 []
                     [ Html.text "Genome browser" ]
                 , Html.p []
-                    [ Html.text ("Total genomes: " ++ (app.data |> List.length |>  String.fromInt)) ]
+                    [ Html.text ("Selected genomes: " ++ (sel |> List.length |> String.fromInt)
+                                ++ " (of " ++ (app.data |> List.length |> String.fromInt) ++ ")")]
                 , Html.p []
-                    [ Html.text ("Selected genomes: " ++ (sel |> List.length |> String.fromInt)) ]
+                    [ Html.text "Representative genomes only: "
+                    , Html.input
+                        [ HtmlAttr.type_ "checkbox"
+                        , HtmlAttr.checked model.repsOnly
+                        , HE.onClick (PagesMsg.fromMsg ToggleRepsOnly)
+                        ] []
+                    ]
+                , Html.p []
+                    [ Html.text "Taxonomy filter: "
+                    , Html.input
+                        [ HtmlAttr.type_ "text"
+                        , HtmlAttr.placeholder "Enter taxonomy"
+                        , HtmlAttr.value model.taxonomyFilter
+                        , HE.onInput (PagesMsg.fromMsg << UpdateTaxonomyFilter)
+                        ] []
+                    ]
+                , Html.p []
+                    [ Html.text "Show full taxonomy: "
+                    , Html.input
+                        [ HtmlAttr.type_ "checkbox"
+                        , HtmlAttr.checked model.showFullTaxonomy
+                        , HE.onClick (PagesMsg.fromMsg ToggleShowFullTaxonomy)
+                        ] []
+                    ]
                 ]
-            , Table.table
+            , Grid.simpleRow [ Grid.col [ ] [Table.table
                 { options = [ Table.striped, Table.hover, Table.responsive ]
                 , thead =  Table.simpleThead
                     [ theader ById "MAG ID"
@@ -155,11 +213,11 @@ view app shared model =
                         |> List.map (\t ->
                             Table.tr []
                                 [ Table.td [] [ Html.text t.id ]
-                                , Table.td [] [ Html.text t.taxonomy ]
+                                , Table.td [] [ Html.text <| maybeSimplifyTaxonomy t.taxonomy ]
                                 , Table.td [] [ Html.text (t.completeness |> String.fromFloat) ]
                                 , Table.td [] [ Html.text (t.contamination |> String.fromFloat) ]
                                 ])
                         |> Table.tbody []
                 }
-            ]
+            ]]]
         }
