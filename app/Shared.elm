@@ -14,6 +14,8 @@ import SharedTemplate exposing (SharedTemplate)
 import View exposing (View)
 import Csv.Decode as Decode
 
+import Bootstrap.CDN as CDN
+
 import DataModel exposing (MAG)
 import LoadData exposing (loadData)
 
@@ -101,7 +103,9 @@ view :
     -> { body : List (Html msg), title : String }
 view sharedData page model toMsg pageView =
     { body =
-        [ Html.nav []
+        [ CDN.stylesheet
+        , CDN.fontAwesome
+        , Html.nav []
             [ Html.button
                 [ Html.Events.onClick MenuClicked ]
                 [ Html.text
