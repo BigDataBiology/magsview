@@ -122,6 +122,14 @@ view sharedData page model toMsg pageView =
                 ]
             , Html.div []
                 (pageView.body)
+            , Html.div [HtmlAttr.id "footer"]
+                [ Html.p []
+                    [ Html.text "For more information about the data, please see "
+                    , Html.a
+                        [HtmlAttr.href "#"]
+                        [ Html.text "(Cuscó et al. 2025)"]
+                    ]
+                ]
             ]
         ]
     , title = pageView.title
