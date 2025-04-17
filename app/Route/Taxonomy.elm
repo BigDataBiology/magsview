@@ -135,6 +135,8 @@ expand1 level mags =
                 |> List.map (getTaxon level)
                 |> Set.fromList
                 |> Set.toList
+        isSingle : Bool
+        isSingle = List.length taxa == 1
         autoexpand : Int -> String -> List MAG -> TreeNode
         autoexpand sublevel taxon submags =
             let
@@ -155,7 +157,9 @@ expand1 level mags =
             |> List.map (\t ->
                     mags
                         |> List.filter (\m -> getTaxon level m == t)
-                        |> autoexpand (level + 1) t
+                        |> if isSingle || String.startsWith "s__" t
+                            then autoexpand (level + 1) t
+                            else CollapsedNode t
                     )
 
 expandNode : Int -> String -> TreeNode -> TreeNode
