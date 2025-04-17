@@ -19,7 +19,7 @@ import Shared
 import Effect exposing (Effect)
 import View exposing (View)
 
-
+import W.InputCheckbox as InputCheckbox
 import Bootstrap.Button as Button
 import Bootstrap.Dropdown as Dropdown
 import Bootstrap.Grid as Grid
@@ -52,7 +52,7 @@ model0 =
 
 type Msg =
     SetSortOrder SortOrder
-    | ToggleRepsOnly
+    | SetRepsOnly Bool
     | UpdateTaxonomyFilter String
     | ToggleShowFullTaxonomy
 
@@ -95,8 +95,8 @@ update _ sm msg model =
         nmodel = case msg of
             SetSortOrder order ->
                 { model | sortOrder = order }
-            ToggleRepsOnly ->
-                { model | repsOnly = not model.repsOnly }
+            SetRepsOnly ro ->
+                { model | repsOnly = ro }
             UpdateTaxonomyFilter filter ->
                 { model | taxonomyFilter = filter }
             ToggleShowFullTaxonomy ->
@@ -121,7 +121,7 @@ head app =
             }
         , description = "TODO"
         , locale = Nothing
-        , title = "TODO title" -- metadata.title -- TODO
+        , title = "Genome collection browser"
         }
         |> Seo.website
 
@@ -187,11 +187,11 @@ view app shared model =
                                 ++ " (of " ++ (app.data |> List.length |> String.fromInt) ++ ")")]
                 , Html.p []
                     [ Html.text "Representative genomes only: "
-                    , Html.input
-                        [ HtmlAttr.type_ "checkbox"
-                        , HtmlAttr.checked model.repsOnly
-                        , HE.onClick (PagesMsg.fromMsg ToggleRepsOnly)
-                        ] []
+                    , InputCheckbox.view
+                        [InputCheckbox.toggle, InputCheckbox.small]
+                        { value = model.repsOnly
+                        , onInput = PagesMsg.fromMsg << SetRepsOnly
+                        }
                     ]
                 , Html.p []
                     [ Html.text "Taxonomy filter: "

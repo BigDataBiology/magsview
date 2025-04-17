@@ -15,6 +15,8 @@ import View exposing (View)
 import Csv.Decode as Decode
 
 import Bootstrap.CDN as CDN
+import W.Styles
+
 
 import DataModel exposing (MAG)
 import LoadData exposing (loadData)
@@ -100,6 +102,8 @@ view sharedData page model toMsg pageView =
     { body =
         [ CDN.stylesheet
         , CDN.fontAwesome
+        , W.Styles.globalStyles
+        , W.Styles.baseTheme
         , Html.main_ [] pageView.body
         ]
     , title = pageView.title
