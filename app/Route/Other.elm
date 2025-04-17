@@ -16,8 +16,6 @@ import Head
 import Html
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatelessRoute)
-import Server.Request
-import Server.Response
 import Shared
 import UrlPath
 import View

@@ -13,8 +13,6 @@ import Html.Events as HE
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Server.Request as Request exposing (Request)
-import Server.Response as Response exposing (Response)
 import Shared
 import Effect exposing (Effect)
 import View exposing (View)
