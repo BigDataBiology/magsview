@@ -14,6 +14,7 @@ import Set
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
+import Shared exposing (loadMAGs)
 import Shared
 import Effect exposing (Effect)
 import View exposing (View)
@@ -75,7 +76,8 @@ route =
         }
 
 
-type alias Data = Shared.Data
+type alias Data =
+    { mags : List MAG }
 
 type alias ActionData =
     {}
@@ -96,7 +98,7 @@ init app shared =
         , Effect.none
         )
 data : RouteParams -> BackendTask FatalError Data
-data routeParams = Shared.template.data
+data routeParams = loadMAGs
 
 update :
     App Data ActionData RouteParams

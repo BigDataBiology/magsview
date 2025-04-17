@@ -13,7 +13,7 @@ import Html.Events as HE
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Shared
+import Shared exposing (loadMAGs)
 import Effect exposing (Effect)
 import View exposing (View)
 
@@ -65,7 +65,7 @@ route =
     RouteBuilder.preRender
         { head = head
         , data = data
-        , pages = Shared.template.data
+        , pages = loadMAGs
                     |> BackendTask.map (.mags >> List.map (\m -> { genome = m.id }))
         }
         |> RouteBuilder.buildWithLocalState
@@ -85,7 +85,7 @@ type alias ActionData =
 
 data : RouteParams -> BackendTask FatalError Data
 data routeParams =
-    Shared.template.data
+    loadMAGs
         |> BackendTask.map .mags
         |> BackendTask.map (List.filter (\m -> m.id == routeParams.genome) >> List.head)
 

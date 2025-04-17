@@ -1,4 +1,4 @@
-module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template)
+module Shared exposing (Data, Model, Msg(..), SharedMsg(..), template, loadMAGs)
 
 import BackendTask exposing (BackendTask)
 import BackendTask.File
@@ -39,9 +39,7 @@ type Msg
 
 
 type alias Data =
-    {
-        mags : List MAG
-    }
+    {}
 
 type SharedMsg
     = NoOp
@@ -83,7 +81,9 @@ subscriptions _ _ =
 
 
 data : BackendTask FatalError Data
-data =
+data = BackendTask.succeed {}
+
+loadMAGs =
     BackendTask.File.rawFile "content/mags.csv"
         |> BackendTask.allowFatal
         |>  BackendTask.andThen (\csv -> case loadData csv of

@@ -13,6 +13,7 @@ import Html.Events as HE
 import Pages.Url
 import PagesMsg exposing (PagesMsg)
 import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
+import Shared exposing (loadMAGs)
 import Shared
 import Effect exposing (Effect)
 import View exposing (View)
@@ -24,6 +25,8 @@ import Bootstrap.Grid as Grid
 import Bootstrap.Grid.Col as Col
 import Bootstrap.Grid.Row as Row
 import Bootstrap.Table as Table
+
+import DataModel exposing (MAG)
 
 type SortOrder =
     ById
@@ -73,14 +76,15 @@ route =
         }
 
 
-type alias Data = Shared.Data
+type alias Data =
+    { mags : List MAG }
 
 type alias ActionData =
     {}
 
 
 data : RouteParams -> BackendTask FatalError Data
-data routeParams = Shared.template.data
+data routeParams = loadMAGs
 
 update :
     App Data ActionData RouteParams
