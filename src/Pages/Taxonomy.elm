@@ -1,20 +1,14 @@
-module Route.Taxonomy exposing (ActionData, Data, Model, Msg, route)
+module Pages.Taxonomy exposing (page, Model, Msg)
 
-import BackendTask exposing (BackendTask)
-import BackendTask.Http
-import ErrorPage exposing (ErrorPage)
-import FatalError exposing (FatalError)
-import Head
-import Head.Seo as Seo
 import Html
 import Html.Attributes as HtmlAttr
 import Html.Events as HE
 import Set
 
-import Pages.Url
-import PagesMsg exposing (PagesMsg)
-import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Shared exposing (loadMAGs)
+import Route exposing (Route)
+import Page exposing (Page)
+import View exposing (View)
+
 import Shared
 import Effect exposing (Effect)
 import View exposing (View)
@@ -30,6 +24,9 @@ import Bootstrap.Grid.Row as Row
 import Bootstrap.Table as Table
 
 import DataModel exposing (MAG)
+import Data exposing (mags)
+import Layouts
+
 
 type TreeNode =
     CollapsedNode String (List MAG)
@@ -60,20 +57,15 @@ type Msg =
 type alias RouteParams =
     {}
 
-
-route : StatefulRoute RouteParams Data ActionData Model Msg
-route =
-    RouteBuilder.preRender
-        { head = head
-        , data = data
-        , pages = BackendTask.succeed [{}]
-        }
-        |> RouteBuilder.buildWithLocalState
+page : Shared.Model -> Route () -> Page Model Msg
+page shared r =
+    Page.new
         { init = init
-        , subscriptions = (\rp u sm m -> Sub.none)
         , update = update
+        , subscriptions = \_ -> Sub.none
         , view = view
         }
+    |> Page.withLayout (\_ -> Layouts.Main {})
 
 
 type alias Data =
@@ -84,29 +76,23 @@ type alias ActionData =
 
 
 init :
-    App Data ActionData RouteParams
-    -> Shared.Model
+    ()
     -> (Model, Effect Msg)
-init app shared =
+init _ =
     let
         model =
-            { tree = CollapsedNode "r__Root" app.data.mags
+            { tree = CollapsedNode "r__Root" mags
             , showDownloadModal = Nothing
             }
     in
         ( model
         , Effect.none
         )
-data : RouteParams -> BackendTask FatalError Data
-data routeParams = loadMAGs
-
 update :
-    App Data ActionData RouteParams
-    -> Shared.Model
-    -> Msg
+    Msg
     -> Model
     -> (Model, Effect Msg)
-update _ sm msg model =
+update msg model =
     let
         nmodel = case msg of
             ExpandNode target -> { model | tree = expandNode 0 target model.tree }
@@ -187,34 +173,13 @@ getAllMAGs =
             )
         >> List.concat
 
-head :
-    App Data ActionData RouteParams
-    -> List Head.Tag
-head app =
-    Seo.summary
-        { canonicalUrlOverride = Nothing
-        , siteName = "elm-pages"
-        , image =
-            { url = Pages.Url.external "TODO"
-            , alt = "elm-pages logo"
-            , dimensions = Nothing
-            , mimeType = Nothing
-            }
-        , description = "TODO"
-        , locale = Nothing
-        , title = "Genome collection browser"
-        }
-        |> Seo.website
-
 
 view :
-    App Data ActionData RouteParams
-    -> Shared.Model
-    -> Model
-    -> View (PagesMsg Msg)
-view app shared model =
+    Model
+    -> View Msg
+view model =
     let
-        sel = app.data.mags
+        m = model
     in
         { title = "Taxonomy browser"
         , body =
@@ -228,8 +193,7 @@ view app shared model =
                         [ Html.text "This is a genome collection browser. You can filter the genomes by taxonomy and sort them by completeness or contamination." ]
                     ]
                 ]
-            , Html.map PagesMsg.fromMsg
-                (showTree model.showDownloadModal model.tree)
+            , showTree model.showDownloadModal model.tree
             ]
         }
 

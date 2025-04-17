@@ -1,19 +1,14 @@
-module Route.Genomes exposing (ActionData, Data, Model, Msg, route)
+module Pages.Genomes exposing (page, Model, Msg)
 
-import BackendTask exposing (BackendTask)
-import BackendTask.Http
-import ErrorPage exposing (ErrorPage)
-import FatalError exposing (FatalError)
-import Head
-import Head.Seo as Seo
 import Html
 import Html.Attributes as HtmlAttr
 import Html.Events as HE
 
-import Pages.Url
-import PagesMsg exposing (PagesMsg)
-import RouteBuilder exposing (App, StatefulRoute, StatelessRoute)
-import Shared exposing (loadMAGs)
+import Route exposing (Route)
+import Page exposing (Page)
+import View exposing (View)
+
+
 import Shared
 import Effect exposing (Effect)
 import View exposing (View)
@@ -27,6 +22,8 @@ import Bootstrap.Grid.Row as Row
 import Bootstrap.Table as Table
 
 import DataModel exposing (MAG)
+import Data exposing (mags)
+import Layouts
 
 type SortOrder =
     ById
@@ -57,42 +54,26 @@ type Msg =
     | UpdateTaxonomyFilter String
     | ToggleShowFullTaxonomy
 
-type alias RouteParams =
-    {}
 
-
-route : StatefulRoute RouteParams Data ActionData Model Msg
-route =
-    RouteBuilder.preRender
-        { head = head
-        , data = data
-        , pages = BackendTask.succeed [{}]
-        }
-        |> RouteBuilder.buildWithLocalState
-        { init = \_ _ -> (model0, Effect.none)
-        , subscriptions = (\rp u sm m -> Sub.none)
+page : Shared.Model -> Route () -> Page Model Msg
+page _ _ =
+    Page.new
+        { init = \_ ->
+            ( model0
+            , Effect.none
+            )
         , update = update
         , view = view
+        , subscriptions = \_ -> Sub.none
         }
+    |> Page.withLayout (\_ -> Layouts.Main {})
 
-
-type alias Data =
-    { mags : List MAG }
-
-type alias ActionData =
-    {}
-
-
-data : RouteParams -> BackendTask FatalError Data
-data routeParams = loadMAGs
 
 update :
-    App Data ActionData RouteParams
-    -> Shared.Model
-    -> Msg
+    Msg
     -> Model
     -> (Model, Effect Msg)
-update _ sm msg model =
+update msg model =
     let
         nmodel = case msg of
             SetSortOrder order ->
@@ -108,34 +89,13 @@ update _ sm msg model =
         , Effect.none
         )
 
-head :
-    App Data ActionData RouteParams
-    -> List Head.Tag
-head app =
-    Seo.summary
-        { canonicalUrlOverride = Nothing
-        , siteName = "elm-pages"
-        , image =
-            { url = Pages.Url.external "TODO"
-            , alt = "elm-pages logo"
-            , dimensions = Nothing
-            , mimeType = Nothing
-            }
-        , description = "TODO"
-        , locale = Nothing
-        , title = "Genome collection browser"
-        }
-        |> Seo.website
-
 
 view :
-    App Data ActionData RouteParams
-    -> Shared.Model
-    -> Model
-    -> View (PagesMsg Msg)
-view app shared model =
+    Model
+    -> View Msg
+view model =
     let
-        sel = app.data.mags
+        sel = mags
             |> List.sortBy (\t ->
                 -- sortBy can receive any comparable value, but it must have a consistent
                 -- type, so we use a tuple to sort by either a string or a float
@@ -161,7 +121,7 @@ view app shared model =
 
         theader sortO h =
                 Table.th
-                    [ Table.cellAttr <| HE.onClick (PagesMsg.fromMsg <| SetSortOrder sortO)
+                    [ Table.cellAttr <| HE.onClick ( SetSortOrder sortO)
                     ] [ Html.a [HtmlAttr.href "#" ] [ Html.text h ] ]
         maybeSimplifyTaxonomy =
             if model.showFullTaxonomy then
@@ -179,10 +139,10 @@ view app shared model =
                 [
                 ]
                 [ Html.a [HtmlAttr.href "#"
-                    , HE.onClick (PagesMsg.fromMsg <| SetSortOrder ByTaxonomy)
+                    , HE.onClick (SetSortOrder ByTaxonomy)
                     ] [ Html.text "Taxonomy (GTDB)" ]
                 , Html.a [HtmlAttr.href "#"
-                    , HE.onClick (PagesMsg.fromMsg ToggleShowFullTaxonomy)
+                    , HE.onClick ToggleShowFullTaxonomy
                     ] [ Html.text (if model.showFullTaxonomy then " [collapse]" else " [expand]") ]
                 ]
     in
@@ -193,13 +153,13 @@ view app shared model =
                     [ Html.text "Genome browser" ]
                 , Html.p []
                     [ Html.text ("Selected genomes: " ++ (sel |> List.length |> String.fromInt)
-                                ++ " (of " ++ (app.data.mags |> List.length |> String.fromInt) ++ ")")]
+                                ++ " (of " ++ (mags |> List.length |> String.fromInt) ++ ")")]
                 , Html.p []
                     [ Html.text "Representative genomes only: "
                     , InputCheckbox.view
                         [InputCheckbox.toggle, InputCheckbox.small]
                         { value = model.repsOnly
-                        , onInput = PagesMsg.fromMsg << SetRepsOnly
+                        , onInput = SetRepsOnly
                         }
                     ]
                 , Html.p []
@@ -208,7 +168,7 @@ view app shared model =
                         [ HtmlAttr.type_ "text"
                         , HtmlAttr.placeholder "Enter taxonomy"
                         , HtmlAttr.value model.taxonomyFilter
-                        , HE.onInput (PagesMsg.fromMsg << UpdateTaxonomyFilter)
+                        , HE.onInput UpdateTaxonomyFilter
                         ] []
                     ]
                 ]
