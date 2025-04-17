@@ -33,6 +33,14 @@ import DataModel exposing (MAG)
 type TreeNode =
     CollapsedNode String (List MAG)
     | ExpandedNode String (List TreeNode)
+    | LeafNode String (List MAG)
+
+nameOf : TreeNode -> String
+nameOf treeNode =
+    case treeNode of
+        CollapsedNode name _ -> name
+        ExpandedNode name _ -> name
+        LeafNode name _ -> name
 
 
 type alias Model =
@@ -102,11 +110,11 @@ update _ sm msg model =
 expand1 : Int -> List MAG -> List TreeNode
 expand1 level mags =
     let
-        getTaxon : MAG -> String
-        getTaxon mag =
+        getTaxon : Int -> MAG -> String
+        getTaxon ell mag =
             mag.taxonomy
                 |> String.split ";"
-                |> getIx level
+                |> getIx ell
         getIx : Int -> List String -> String
         getIx i =
             List.drop i
@@ -114,15 +122,30 @@ expand1 level mags =
                 >> Maybe.withDefault ""
         taxa : List String
         taxa = mags
-                |> List.map getTaxon
+                |> List.map (getTaxon level)
                 |> Set.fromList
                 |> Set.toList
+        autoexpand : Int -> String -> List MAG -> TreeNode
+        autoexpand sublevel taxon submags =
+            let
+                subtaxa = submags
+                    |> List.map (getTaxon sublevel)
+                    |> Set.fromList
+                    |> Set.toList
+            in
+                if String.startsWith "s__" taxon || String.isEmpty taxon
+                then
+                    LeafNode taxon submags
+                else
+                    case subtaxa of
+                        [subt] -> ExpandedNode taxon [autoexpand (sublevel + 1) subt submags]
+                        _ -> CollapsedNode taxon submags
     in
         taxa
             |> List.map (\t ->
                     mags
-                        |> List.filter (\m -> getTaxon m == t)
-                        |> CollapsedNode t
+                        |> List.filter (\m -> getTaxon level m == t)
+                        |> autoexpand (level + 1) t
                     )
 
 expandNode : Int -> String -> TreeNode -> TreeNode
@@ -136,6 +159,8 @@ expandNode level target treeNode =
         ExpandedNode name children ->
             ExpandedNode name
                 (List.map (expandNode (level + 1) target) children)
+        LeafNode _ _ ->
+            treeNode
 
 head :
     App Data ActionData RouteParams
@@ -184,23 +209,28 @@ view app shared model =
         }
 
 showTree : TreeNode -> Html.Html Msg
-showTree treeNode = case treeNode of
-    CollapsedNode name children ->
-        Html.div []
-            [ Html.h2 []
-                [ Html.text name ]
-            , Html.p []
-                [ Html.text ("Number of genomes: " ++ String.fromInt (List.length children)) ]
-            , Html.p [HE.onClick (ExpandNode name)]
-                [ Html.text ("Click to expand "++name) ]
-            ]
-    ExpandedNode name children ->
-        Html.div []
-            [ Html.h2 []
-                [ Html.text name ]
-            , Html.div [
-                HtmlAttr.style
-                    "padding-left" "20px"
+showTree treeNode =
+    Html.div []
+    [ Html.h2 []
+        [ Html.text <| nameOf treeNode ]
+    , Html.div []
+        (case treeNode of
+            CollapsedNode name children ->
+                [ Html.p []
+                    [ Html.text ("Number of genomes: " ++ String.fromInt (List.length children)) ]
+                , Html.p [HE.onClick (ExpandNode name)]
+                    [ Html.text ("Click to expand "++name) ]
                 ]
-                (List.map showTree children)
-            ]
+            ExpandedNode _ children ->
+                [ Html.div [
+                    HtmlAttr.style
+                        "padding-left" "20px"
+                    ]
+                    (List.map showTree children)
+                ]
+            LeafNode _ children ->
+                [ Html.p []
+                    [ Html.text ("Number of genomes: " ++ String.fromInt (List.length children)) ]
+                ]
+        )
+    ]
