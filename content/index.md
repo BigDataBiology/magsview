@@ -1,5 +1,0 @@
----
----
-
-## Shanghai dog gut microbiome
-
