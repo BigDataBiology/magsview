@@ -237,30 +237,41 @@ showTree treeNode =
     Html.div [HtmlAttr.class "tree-node"]
     (case treeNode of
         CollapsedNode name children ->
-            [ Html.h2 []
-                [ Html.text <| nameOf treeNode ]
-            , Html.p []
-                [ Html.text ("Number of genomes: " ++ String.fromInt (List.length children))
+            [ Html.p [HtmlAttr.class "taxonomy-header"]
+                [ Html.text <| nameOf treeNode
                 , Html.span [HE.onClick (ExpandNode name)]
                     [ Html.text " [expand]" ]
                 ]
+            , Html.p []
+                [ Html.text ("Number of genomes: " ++ String.fromInt (List.length children))
+                ]
             ]
         ExpandedNode _ children ->
-            [ Html.h2 []
+            [ Html.p [HtmlAttr.class "taxonomy-header"]
                 [ Html.text <| nameOf treeNode
                 , Html.span [HE.onClick (CollapseNode (nameOf treeNode))]
                     [ Html.text " [collapse]" ]
                 ]
             , Html.div [
-                HtmlAttr.style
-                    "padding-left" "20px"
                 ]
                 (List.map showTree children)
             ]
         LeafNode _ children ->
-            [ Html.h2 []
+            [ Html.p [HtmlAttr.class "taxonomy-header"]
                 [ Html.text <| nameOf treeNode ]
-            , Html.p []
-                [ Html.text ("Number of genomes: " ++ String.fromInt (List.length children)) ]
+            , Html.ul []
+                ( children
+                    |> List.sortBy .id
+                    |> List.map (\mag ->
+                        Html.li (if mag.isRepresentative
+                                    then [HtmlAttr.class "representative"]
+                                    else [])
+                            [ Html.a [ HtmlAttr.href "#" ]
+                                [ Html.text <|
+                                        (mag.id ++ " (" ++ String.fromFloat mag.completeness ++ "% completness/" ++ String.fromFloat mag.contamination ++ "% contamination)")
+                                ]
+                            ]
+                    )
+                )
             ]
     )

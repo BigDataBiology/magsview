@@ -4,7 +4,15 @@ body {
 }
 
 div.tree-node {
-  margin-left: 20px;
-  padding: 5px;
-  border: 1px solid #ccc;
+  margin-left: 8px;
+  padding: 4px;
+  border-left: 3px solid #ccc;
+}
+
+p.taxonomy-header {
+  font-size: 1.1em;
+  font-weight: bold;
+}
+li.representative {
+  font-weight: bold;
 }
