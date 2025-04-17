@@ -261,7 +261,9 @@ showTree treeNode =
                     LeafNode _ _ -> True
             in Html.p []
                     [ Html.span [HtmlAttr.class "taxonomy-header"]
-                        [ Html.text sname ]
+                        [ if String.isEmpty sname
+                            then Html.em [] [Html.text "unnamed"]
+                            else Html.text sname]
                     , Html.span [HtmlAttr.class "taxonomy-class"]
                         [Html.text (" ("++tlevel++")")]
                     , if isL
