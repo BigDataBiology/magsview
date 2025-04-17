@@ -36,7 +36,10 @@ type Msg
     = SharedMsg SharedMsg
 
 
-type alias Data = List MAG
+type alias Data =
+    {
+        mags : List MAG
+    }
 
 type SharedMsg
     = NoOp
@@ -86,7 +89,7 @@ data =
                 BackendTask.succeed loaded
             Err err ->
                 BackendTask.fail (FatalError.fromString ("Failed to load data: " ++ Decode.errorToString err))
-        )
+        ) |> BackendTask.map (\m -> { mags = m })
 
 view :
     Data

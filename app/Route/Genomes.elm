@@ -133,7 +133,7 @@ view :
     -> View (PagesMsg Msg)
 view app shared model =
     let
-        sel = app.data
+        sel = app.data.mags
             |> List.sortBy (\t ->
                 -- sortBy can receive any comparable value, but it must have a consistent
                 -- type, so we use a tuple to sort by either a string or a float
@@ -147,8 +147,15 @@ view app shared model =
                     ByContamination ->
                         ("", t.contamination)
                         )
-            |> List.filter (\t -> (not model.repsOnly) || t.isRepresentative)
-            |> List.filter (\t -> String.contains model.taxonomyFilter (String.toLower t.taxonomy))
+            |> (if model.repsOnly
+                    then List.filter .isRepresentative
+                    else identity)
+            |> (if String.isEmpty model.taxonomyFilter
+                    then identity
+                    else List.filter (\t ->
+                            String.contains model.taxonomyFilter
+                                (String.toLower t.taxonomy))
+                )
 
         theader sortO h =
                 Table.th
@@ -184,7 +191,7 @@ view app shared model =
                     [ Html.text "Genome browser" ]
                 , Html.p []
                     [ Html.text ("Selected genomes: " ++ (sel |> List.length |> String.fromInt)
-                                ++ " (of " ++ (app.data |> List.length |> String.fromInt) ++ ")")]
+                                ++ " (of " ++ (app.data.mags |> List.length |> String.fromInt) ++ ")")]
                 , Html.p []
                     [ Html.text "Representative genomes only: "
                     , InputCheckbox.view
