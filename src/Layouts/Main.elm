@@ -76,6 +76,7 @@ view { toContentMsg, model, content } =
         , W.Styles.globalStyles
         , W.Styles.baseTheme
         , Html.node "link" [ HtmlAttr.rel "stylesheet", HtmlAttr.href "/magsview.css" ] []
+        , Html.node "link" [ HtmlAttr.rel "stylesheet", HtmlAttr.href "/style.css" ] []
         , Html.main_ []
             [
                 Html.nav []

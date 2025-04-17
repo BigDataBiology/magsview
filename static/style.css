@@ -1,0 +1,63 @@
+@media only screen and (max-width: 600px) {
+  #leftbar {
+    display: none;
+  }
+}
+
+
+h1 {
+    color : #005a32;
+    font-variant: small-caps;
+    border-bottom: solid 2px #63ba92;
+}
+h2,h3 {
+    color : #005a32;
+}
+h4,h5 {
+    color : #238443;
+}
+
+h1:not(:first-child) {
+    margin-top: 2em;
+}
+
+div.sidebar-group {
+    border-left: 2px solid #333;
+    padding-left: 0.5em;
+    margin: 1em;
+}
+
+div.caption {
+    font-size: small;
+    color: #333333;
+    padding-bottom:1em;
+    padding-left:1em;
+    padding-right:1em;
+    padding-top:0em;
+}
+
+img {
+    max-width : 90%
+}
+
+nav {
+    padding-top: 0px;
+    padding-bottom: 6px;
+    margin: 0px;
+    margin-bottom: 6px;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border-bottom: solid 2px #63ba92;
+    margin-bottom: 1em;
+}
+
+nav a {
+    color: #005a32;
+    font-weight: bold;
+    padding: 2em;
+}
+
+cite.journal-title {
+    font-variant: small-caps;
+}
