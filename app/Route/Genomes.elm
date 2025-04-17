@@ -220,7 +220,12 @@ view app shared model =
                     sel
                         |> List.map (\t ->
                             Table.tr []
-                                [ Table.td [] [ Html.text t.id ]
+                                [ Table.td [] [ Html.a
+                                                    [
+                                                        HtmlAttr.href ("/genome/"++ t.id)
+                                                    ]
+                                                    [ Html.text t.id ]
+                                                ]
                                 , Table.td [] [ Html.text <| maybeSimplifyTaxonomy t.taxonomy ]
                                 , Table.td [] [ Html.text (t.completeness |> String.fromFloat) ]
                                 , Table.td [] [ Html.text (t.contamination |> String.fromFloat) ]

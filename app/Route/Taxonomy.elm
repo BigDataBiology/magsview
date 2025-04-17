@@ -304,7 +304,7 @@ showTree showDownloadModal treeNode =
                             Html.li (if mag.isRepresentative
                                         then [HtmlAttr.class "representative"]
                                         else [])
-                                [ Html.a [ HtmlAttr.href "#" ]
+                                [ Html.a [ HtmlAttr.href ("/genome/"++mag.id)]
                                     [ Html.text <|
                                             (mag.id ++ " (" ++ String.fromFloat mag.completeness ++ "% completness/" ++ String.fromFloat mag.contamination ++ "% contamination)")
                                     ]
