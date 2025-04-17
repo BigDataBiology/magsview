@@ -5,6 +5,7 @@ import BackendTask.File
 import Effect exposing (Effect)
 import FatalError exposing (FatalError)
 import Html exposing (Html)
+import Html.Attributes as HtmlAttr
 import Html.Events
 import Pages.Flags
 import Pages.PageUrl exposing (PageUrl)
@@ -15,6 +16,7 @@ import View exposing (View)
 import Csv.Decode as Decode
 
 import Bootstrap.CDN as CDN
+import Bootstrap.Grid as Grid
 import W.Styles
 
 
@@ -107,7 +109,20 @@ view sharedData page model toMsg pageView =
         , CDN.fontAwesome
         , W.Styles.globalStyles
         , W.Styles.baseTheme
-        , Html.main_ [] pageView.body
+        , Html.main_ []
+            [
+                Html.nav []
+                [Grid.simpleRow
+                    [ Grid.col [] [ Html.a [HtmlAttr.href "./"] [Html.text "Home"]]
+                    , Grid.col [] [ Html.a [HtmlAttr.href "genomes"] [Html.text "Genomes"]]
+                    , Grid.col [] [ Html.a [HtmlAttr.href "taxonomy"] [Html.text "Taxonomy"]]
+                    , Grid.col [] [ Html.a [HtmlAttr.href "other"] [Html.text "Other Data"]]
+                    , Grid.col [] [ Html.a [HtmlAttr.href "about"] [Html.text "About&Contact"]]
+                    ]
+                ]
+            , Html.div []
+                (pageView.body)
+            ]
         ]
     , title = pageView.title
     }
