@@ -75,7 +75,7 @@ view { toContentMsg, model, content } =
         , CDN.fontAwesome
         , W.Styles.globalStyles
         , W.Styles.baseTheme
-        , Html.node "link" [ HtmlAttr.rel "stylesheet", HtmlAttr.href "/style.css" ] []
+        , Html.node "link" [ HtmlAttr.rel "stylesheet", HtmlAttr.href "/magsview.css" ] []
         , Html.main_ []
             [
                 Html.nav []
