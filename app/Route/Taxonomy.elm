@@ -50,6 +50,7 @@ type alias Model =
 
 type Msg =
     ExpandNode String
+    | CollapseNode String
 
 type alias RouteParams =
     {}
@@ -102,6 +103,7 @@ update _ sm msg model =
     let
         nmodel = case msg of
             ExpandNode target -> { model | tree = expandNode 0 target model.tree }
+            CollapseNode target -> { model | tree = collapseNode target model.tree }
     in
         ( nmodel
         , Effect.none
@@ -162,6 +164,28 @@ expandNode level target treeNode =
         LeafNode _ _ ->
             treeNode
 
+collapseNode : String -> TreeNode -> TreeNode
+collapseNode target treeNode =
+    case treeNode of
+        CollapsedNode name children -> treeNode
+        ExpandedNode name children ->
+            if name == target then
+                CollapsedNode name (getAllMAGs children)
+            else
+                ExpandedNode name (List.map (collapseNode target) children)
+        LeafNode _ _ ->
+            treeNode
+
+getAllMAGs : List TreeNode -> List MAG
+getAllMAGs =
+        List.map (\child ->
+                case child of
+                    CollapsedNode _ mags -> mags
+                    ExpandedNode _ mags -> getAllMAGs mags
+                    LeafNode _ mags -> mags
+            )
+        >> List.concat
+
 head :
     App Data ActionData RouteParams
     -> List Head.Tag
@@ -210,27 +234,33 @@ view app shared model =
 
 showTree : TreeNode -> Html.Html Msg
 showTree treeNode =
-    Html.div []
-    [ Html.h2 []
-        [ Html.text <| nameOf treeNode ]
-    , Html.div []
-        (case treeNode of
-            CollapsedNode name children ->
-                [ Html.p []
-                    [ Html.text ("Number of genomes: " ++ String.fromInt (List.length children)) ]
-                , Html.p [HE.onClick (ExpandNode name)]
-                    [ Html.text ("Click to expand "++name) ]
+    Html.div [HtmlAttr.class "tree-node"]
+    (case treeNode of
+        CollapsedNode name children ->
+            [ Html.h2 []
+                [ Html.text <| nameOf treeNode ]
+            , Html.p []
+                [ Html.text ("Number of genomes: " ++ String.fromInt (List.length children))
+                , Html.span [HE.onClick (ExpandNode name)]
+                    [ Html.text " [expand]" ]
                 ]
-            ExpandedNode _ children ->
-                [ Html.div [
-                    HtmlAttr.style
-                        "padding-left" "20px"
-                    ]
-                    (List.map showTree children)
+            ]
+        ExpandedNode _ children ->
+            [ Html.h2 []
+                [ Html.text <| nameOf treeNode
+                , Html.span [HE.onClick (CollapseNode (nameOf treeNode))]
+                    [ Html.text " [collapse]" ]
                 ]
-            LeafNode _ children ->
-                [ Html.p []
-                    [ Html.text ("Number of genomes: " ++ String.fromInt (List.length children)) ]
+            , Html.div [
+                HtmlAttr.style
+                    "padding-left" "20px"
                 ]
-        )
-    ]
+                (List.map showTree children)
+            ]
+        LeafNode _ children ->
+            [ Html.h2 []
+                [ Html.text <| nameOf treeNode ]
+            , Html.p []
+                [ Html.text ("Number of genomes: " ++ String.fromInt (List.length children)) ]
+            ]
+    )
