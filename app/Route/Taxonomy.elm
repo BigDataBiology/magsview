@@ -82,7 +82,7 @@ init :
 init app shared =
     let
         model =
-            { tree = CollapsedNode "root" app.data.mags
+            { tree = CollapsedNode "r__Root" app.data.mags
             }
     in
         ( model
@@ -232,44 +232,68 @@ view app shared model =
 
 showTree : TreeNode -> Html.Html Msg
 showTree treeNode =
-    Html.div [HtmlAttr.class "tree-node"]
-    (case treeNode of
-        CollapsedNode name children ->
-            [ Html.p [HtmlAttr.class "taxonomy-header"]
-                [ Html.text <| nameOf treeNode
-                , Html.span [HE.onClick (ExpandNode name)]
-                    [ Html.text " [expand]" ]
+    let
+        name = nameOf treeNode
+        tlevel = case String.split "__" name of
+            [] -> "root"
+            (x::_) -> case x of
+                "r" -> "root"
+                "d" -> "domain"
+                "k" -> "kingdom"
+                "p" -> "phylum"
+                "c" -> "class"
+                "o" -> "order"
+                "f" -> "family"
+                "g" -> "genus"
+                "s" -> "species"
+                _ -> "unknown"
+        sname = case String.split "__" name of
+            [_, x] -> String.replace "_" " " x
+            _ -> ""
+        card =
+            let isC = case treeNode of
+                    CollapsedNode _ _ -> True
+                    ExpandedNode _ _ -> False
+                    LeafNode _ _ -> False
+                isL = case treeNode of
+                    CollapsedNode _ _ -> False
+                    ExpandedNode _ _ -> False
+                    LeafNode _ _ -> True
+            in Html.p []
+                    [ Html.span [HtmlAttr.class "taxonomy-header"]
+                        [ Html.text sname ]
+                    , Html.span [HtmlAttr.class "taxonomy-class"]
+                        [Html.text (" ("++tlevel++")")]
+                    , if isL
+                        then Html.span [] []
+                        else Html.span
+                            [HE.onClick ((if isC then ExpandNode else CollapseNode) name)]
+                            [ Html.text (" ["++ (if isC then "+" else "-")++ "]")]
+                    ]
+    in Html.div [ HtmlAttr.class "tree-node"
+                , HtmlAttr.class ("taxonomy-node-" ++ tlevel)]
+        (card :: (case treeNode of
+            CollapsedNode _ children ->
+                [ Html.p []
+                    [ Html.text ("Number of genomes: " ++ String.fromInt (List.length children))
+                    ]
                 ]
-            , Html.p []
-                [ Html.text ("Number of genomes: " ++ String.fromInt (List.length children))
-                ]
-            ]
-        ExpandedNode _ children ->
-            [ Html.p [HtmlAttr.class "taxonomy-header"]
-                [ Html.text <| nameOf treeNode
-                , Html.span [HE.onClick (CollapseNode (nameOf treeNode))]
-                    [ Html.text " [collapse]" ]
-                ]
-            , Html.div [
-                ]
+            ExpandedNode _ children ->
                 (List.map showTree children)
-            ]
-        LeafNode _ children ->
-            [ Html.p [HtmlAttr.class "taxonomy-header"]
-                [ Html.text <| nameOf treeNode ]
-            , Html.ul []
-                ( children
-                    |> List.sortBy .id
-                    |> List.map (\mag ->
-                        Html.li (if mag.isRepresentative
-                                    then [HtmlAttr.class "representative"]
-                                    else [])
-                            [ Html.a [ HtmlAttr.href "#" ]
-                                [ Html.text <|
-                                        (mag.id ++ " (" ++ String.fromFloat mag.completeness ++ "% completness/" ++ String.fromFloat mag.contamination ++ "% contamination)")
+            LeafNode _ children ->
+                [ Html.ul []
+                    ( children
+                        |> List.sortBy .id
+                        |> List.map (\mag ->
+                            Html.li (if mag.isRepresentative
+                                        then [HtmlAttr.class "representative"]
+                                        else [])
+                                [ Html.a [ HtmlAttr.href "#" ]
+                                    [ Html.text <|
+                                            (mag.id ++ " (" ++ String.fromFloat mag.completeness ++ "% completness/" ++ String.fromFloat mag.contamination ++ "% contamination)")
+                                    ]
                                 ]
-                            ]
+                        )
                     )
-                )
-            ]
-    )
+                ]
+        ))
