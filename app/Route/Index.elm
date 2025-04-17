@@ -2,6 +2,7 @@ module Route.Index exposing (ActionData, Data, Model, Msg, route)
 
 import BackendTask exposing (BackendTask)
 import FatalError exposing (FatalError)
+import BackendTask.File
 import Head
 import Head.Seo as Seo
 import Html
@@ -13,6 +14,7 @@ import RouteBuilder exposing (App, StatelessRoute)
 import Shared
 import View exposing (View)
 
+import SiteMarkdown exposing (mdToHtml)
 
 type alias Model =
     {}
@@ -27,7 +29,7 @@ type alias RouteParams =
 
 
 type alias Data =
-    { message : String
+    { content : String
     }
 
 
@@ -43,12 +45,11 @@ route =
         }
         |> RouteBuilder.buildNoState { view = view }
 
-
 data : BackendTask FatalError Data
 data =
-    BackendTask.succeed Data
-        |> BackendTask.andMap
-            (BackendTask.succeed "Hello!")
+    BackendTask.File.bodyWithoutFrontmatter "content/index.md"
+        |> BackendTask.allowFatal
+        |> BackendTask.map (\content -> { content = content })
 
 
 head :
@@ -74,13 +75,9 @@ head app =
 view :
     App Data ActionData RouteParams
     -> Shared.Model
-    -> View (PagesMsg Msg)
+    -> View (PagesMsg ())
 view app shared =
-    { title = "elm-pages is running"
+    { title = "Index"
     , body =
-        [ Html.h1 [] [ Html.text "elm-pages is up and running!" ]
-        , Html.p []
-            [ Html.text <| "The message is: " ++ app.data.message
-            ]
-        ]
+        [mdToHtml app.data.content]
     }
