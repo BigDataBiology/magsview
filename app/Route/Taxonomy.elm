@@ -19,6 +19,8 @@ import Effect exposing (Effect)
 import View exposing (View)
 
 import W.InputCheckbox as InputCheckbox
+import W.Modal as Modal
+import Bootstrap.ButtonGroup as ButtonGroup
 import Bootstrap.Button as Button
 import Bootstrap.Dropdown as Dropdown
 import Bootstrap.Grid as Grid
@@ -43,12 +45,16 @@ nameOf treeNode =
 
 type alias Model =
     { tree : TreeNode
+    , showDownloadModal : Maybe String
     }
 
 
 type Msg =
     ExpandNode String
     | CollapseNode String
+    | DownloadAll
+    | DownloadReps
+    | ClearDownload
 
 type alias RouteParams =
     {}
@@ -83,6 +89,7 @@ init app shared =
     let
         model =
             { tree = CollapsedNode "r__Root" app.data.mags
+            , showDownloadModal = Nothing
             }
     in
         ( model
@@ -102,6 +109,9 @@ update _ sm msg model =
         nmodel = case msg of
             ExpandNode target -> { model | tree = expandNode 0 target model.tree }
             CollapseNode target -> { model | tree = collapseNode target model.tree }
+            DownloadAll -> { model | showDownloadModal = Just "all" }
+            DownloadReps -> { model | showDownloadModal = Just "reps" }
+            ClearDownload -> { model | showDownloadModal = Nothing }
     in
         ( nmodel
         , Effect.none
@@ -226,12 +236,12 @@ view app shared model =
                     ]
                 ]
             , Html.map PagesMsg.fromMsg
-                (showTree model.tree)
+                (showTree model.showDownloadModal model.tree)
             ]
         }
 
-showTree : TreeNode -> Html.Html Msg
-showTree treeNode =
+showTree : Maybe String -> TreeNode -> Html.Html Msg
+showTree showDownloadModal treeNode =
     let
         name = nameOf treeNode
         tlevel = case String.split "__" name of
@@ -281,9 +291,9 @@ showTree treeNode =
                     ]
                 ]
             ExpandedNode _ children ->
-                (List.map showTree children)
+                (List.map (showTree showDownloadModal) children)
             LeafNode _ children ->
-                [ Html.ul []
+                [ Html.ol []
                     ( children
                         |> List.sortBy .id
                         |> List.map (\mag ->
@@ -297,5 +307,26 @@ showTree treeNode =
                                 ]
                         )
                     )
+                , Html.p [HtmlAttr.style "font-size" "small"]
+                    [ Html.text "Bolded elements are representative genomes." ]
+                , Html.p [HtmlAttr.style "text-align" "right"]
+                    [ ButtonGroup.buttonGroup
+                        [ ButtonGroup.small ]
+                        [ ButtonGroup.button [ Button.outlinePrimary, Button.small
+                            , Button.onClick DownloadReps]
+                            [ Html.text "Download representatives" ]
+                        , ButtonGroup.button
+                            [ Button.outlinePrimary , Button.small
+                            , Button.onClick DownloadAll]
+                            [ Html.text "Download all" ]
+                        ]
+                    ]
+                , Modal.view []
+                    { isOpen = showDownloadModal /= Nothing
+                    , onClose = Just ClearDownload
+                    , content = [Html.pre []
+                        [ Html.text "Downloading genomes is not yet implemented."]
+                        ]
+                    }
                 ]
         ))
