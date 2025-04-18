@@ -25,7 +25,7 @@ import View exposing (View)
 
 import W.InputCheckbox as InputCheckbox
 import Bootstrap.Button as Button
-import Bootstrap.Dropdown as Dropdown
+import Bootstrap.Form.Input as Input
 import Bootstrap.Grid as Grid
 import Bootstrap.Grid.Col as Col
 import Bootstrap.Grid.Row as Row
@@ -203,15 +203,11 @@ view model =
                         ]
                     , Html.p []
                         [ Html.text "Taxonomy filter: "
-                        , Html.input
-                            [ HtmlAttr.type_ "text"
-                            , HtmlAttr.placeholder "Enter taxonomy"
-                            , HtmlAttr.size 120
-                            -- Not sure why this is needed, but it seems to be on Chrome
-                            , HtmlAttr.style "min-width" "320px"
-                            , HtmlAttr.value model.taxonomyFilter
-                            , HE.onInput UpdateTaxonomyFilter
-                            ] []
+                        , Input.text
+                            [ Input.placeholder "Enter taxonomy"
+                            , Input.value model.taxonomyFilter
+                            , Input.onInput UpdateTaxonomyFilter
+                            ]
                         ]
                     ]
                 )::(viewCharts model sel))
