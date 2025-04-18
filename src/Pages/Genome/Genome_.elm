@@ -125,11 +125,21 @@ showMag mag =
                     [ Table.td []
                         [Html.text "Taxonomy (GTDB)"]
                     , Table.td []
-                        (mag.taxonomy
-                            |> String.split ";"
-                            |> List.map (\t -> Html.text t)
-                            |> List.intersperse (Html.br [] [])
+                        [Html.div
+                            [HtmlAttr.style "border-bottom" "2px solid black"]
+                            (let
+                                r : List String -> List (Html.Html Msg)
+                                r tax = case tax of
+                                    [] -> []
+                                    (x::xs) ->
+                                        [Html.div [HtmlAttr.style "padding-left" "1em"
+                                                , HtmlAttr.style "border-left" "2px solid black"
+                                                ]
+                                            ((Html.text x)::(r xs))
+                                        ]
+                            in r (String.split ";" mag.taxonomy)
                             )
+                        ]
                     ]
                 , Table.tr []
                     [ Table.td []
