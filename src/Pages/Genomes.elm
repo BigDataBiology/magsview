@@ -215,7 +215,7 @@ view model =
                     [ Html.text "Genomes table" ]
                 ]
             , Grid.simpleRow
-                (( Grid.col []
+                (( Grid.col [Col.lg4]
                     [Html.h2 [] [Html.text "Filter genomes"]
                     ,Html.p []
                         [ Html.text ("Selected genomes: " ++ (sel |> List.length |> String.fromInt)
