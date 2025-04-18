@@ -260,13 +260,13 @@ showTree showDownloadModal treeNode =
                                         else [])
                                 [ Html.a [ HtmlAttr.href ("/genome/"++mag.id)]
                                     [ Html.text <|
-                                            (mag.id ++ " (" ++ String.fromFloat mag.completeness ++ "% completness/" ++ String.fromFloat mag.contamination ++ "% contamination)")
+                                            (mag.id ++ " (" ++ String.fromFloat mag.completeness ++ "% completeness/" ++ String.fromFloat mag.contamination ++ "% contamination)")
                                     ]
                                 ]
                         )
                     )
                 , Html.p [HtmlAttr.style "font-size" "small"]
-                    [ Html.text "Bolded elements are representative genomes." ]
+                    [ Html.text "Bolded elements are the species-representative MAGs" ]
                 , Html.p [HtmlAttr.style "text-align" "right"]
                     [ ButtonGroup.buttonGroup
                         [ ButtonGroup.small ]
