@@ -34,7 +34,7 @@ import Bootstrap.Table as Table
 
 import DataModel exposing (MAG)
 import Data exposing (mags)
-import GenomeStats exposing (simplifyTaxonomy)
+import GenomeStats exposing (taxonomyLast)
 import Shared
 
 
@@ -195,7 +195,7 @@ view model =
             if model.showFullTaxonomy then
                 identity
             else
-                simplifyTaxonomy
+                taxonomyLast
         taxonomyHeader =
             Table.th
                 [

@@ -22,7 +22,7 @@ import Shared
 import Data exposing (mags)
 import DataModel exposing (MAG)
 import Layouts
-import GenomeStats exposing (simplifyTaxonomy)
+import GenomeStats exposing (taxonomyLast, printableTaxonomy)
 
 -- INIT
 
@@ -145,11 +145,22 @@ showMag mag =
                     [ Table.td []
                         [Html.text "Is Representative"]
                     , Table.td []
-                        [Html.text (if mag.isRepresentative then "Yes" else "No")
-                        , Html.a [HtmlAttr.href ("/genomes?taxonomy="++ mag.taxonomy)
-                            ]
-                            [ Html.text <| " [show all genomes of "++simplifyTaxonomy mag.taxonomy++"]" ]
-                        ]
+                        ((Html.text (if mag.isRepresentative then "Yes" else "No"))
+                        ::
+                            (let
+                                n = mags
+                                        |> List.filter (\m -> m.taxonomy == mag.taxonomy)
+                                        |> List.length
+                            in
+                                [if n == 1
+                                    then Html.text <| " (only genome of "++printableTaxonomy mag.taxonomy++")"
+                                    else Html.a [HtmlAttr.href ("/genomes?taxonomy="++ taxonomyLast mag.taxonomy)]
+                                            [Html.text <|
+                                                    " (a total of " ++ String.fromInt n ++
+                                                        " genomes of "++ printableTaxonomy mag.taxonomy ++ " available, click to see all)"
+                                            ]
+                                ]
+                        ))
                     ]
                 , basicTR "#Contigs" (String.fromInt mag.nrContigs)
                 , basicTR "Genome Size (bp)" (showWithCommas mag.genomeSize)

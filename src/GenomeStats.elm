@@ -2,7 +2,8 @@ module GenomeStats exposing (chartNrContigs,
                             chartQualitySummary,
                             chartQualityScatter,
                             Quality, magQuality, qualityString,
-                            simplifyTaxonomy)
+                            taxonomyLast,
+                            printableTaxonomy)
 
 
 import Html
@@ -125,7 +126,7 @@ chartQualityScatter onHover hovering sel =
                                 then "bold"
                                 else "normal")
                         ] [
-                       Html.text <| simplifyTaxonomy m.taxonomy]
+                       Html.text <| taxonomyLast m.taxonomy]
             ]
         ]
 
@@ -152,9 +153,12 @@ chartQualityScatter onHover hovering sel =
         )
     ]
 
-simplifyTaxonomy t =
+taxonomyLast t =
     String.split ";" t
         |> List.reverse
         |> List.filter (\s -> String.length s > 3)
         |> List.head
         |> Maybe.withDefault ""
+
+printableTaxonomy =
+    taxonomyLast >> String.dropLeft 3
