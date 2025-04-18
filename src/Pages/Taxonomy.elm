@@ -183,13 +183,7 @@ view model =
         , body =
             [ Html.div []
                 [ Html.h1 []
-                    [ Html.text "Genome browser" ]
-                ]
-            , Grid.simpleRow
-                [ Grid.col [ ]
-                    [ Html.p []
-                        [ Html.text "This is a genome collection browser. You can filter the genomes by taxonomy and sort them by completeness or contamination." ]
-                    ]
+                    [ Html.text "Taxonomy explorer" ]
                 ]
             , showTree model.showDownloadModal model.tree
             ]

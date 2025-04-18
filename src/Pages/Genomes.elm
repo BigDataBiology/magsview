@@ -191,7 +191,7 @@ view model =
         , body =
             [ Html.div []
                 [ Html.h1 []
-                    [ Html.text "Genome browser" ]
+                    [ Html.text "Genomes table" ]
                 ]
             , Grid.simpleRow
                 (( Grid.col []
@@ -225,23 +225,24 @@ view model =
                 { options = [ Table.striped, Table.hover, Table.responsive ]
                 , thead =  Table.simpleThead
                     [ theader ById "MAG ID"
-                    , taxonomyHeader
                     , theader ByCompleteness "Completeness"
                     , theader ByContamination "Contamination"
+                    , taxonomyHeader
                     ]
                 , tbody =
                     sel
                         |> List.map (\t ->
                             Table.tr []
                                 [ Table.td [] [ Html.a
-                                                    [
-                                                        HtmlAttr.href ("/genome/"++ t.id)
+                                                    [ HtmlAttr.href ("/genome/"++ t.id)
+                                                    , HtmlAttr.style "font-weight"
+                                                        (if t.isRepresentative then "bold" else "normal")
                                                     ]
                                                     [ Html.text t.id ]
                                                 ]
-                                , Table.td [] [ Html.text <| maybeSimplifyTaxonomy t.taxonomy ]
                                 , Table.td [] [ Html.text (t.completeness |> String.fromFloat) ]
                                 , Table.td [] [ Html.text (t.contamination |> String.fromFloat) ]
+                                , Table.td [] [ Html.text <| maybeSimplifyTaxonomy t.taxonomy ]
                                 ])
                         |> Table.tbody []
                 }
@@ -263,6 +264,13 @@ viewCharts sel =
             ]
             [viewQualityScatter sel]
         ]
+    , Grid.col []
+        [ Html.div
+            [HtmlAttr.style "width" "180px"
+            ,HtmlAttr.style "height" "180px"
+            ]
+            [viewNrContigs sel]
+        ]
     ]
 
 viewQualityScatter sel =
@@ -270,6 +278,11 @@ viewQualityScatter sel =
     [ ]
     [ C.xLabels [ CA.withGrid ]
     , C.yLabels [ CA.withGrid ]
+    , C.labelAt .min CA.middle [ CA.moveLeft 35, CA.rotate 90 ]
+          [ S.text "Contamination" ]
+    , C.labelAt CA.middle .min [ CA.moveDown 30 ]
+          [ S.text "Completeness" ]
+
     , C.series .completeness
         [C.scatter .contamination []
         ]
@@ -286,6 +299,10 @@ viewQualitySummary sel =
         [ ]
         [ C.yLabels [ CA.withGrid ]
         , C.binLabels .label [ CA.moveDown 20 ]
+        , C.labelAt .min CA.middle [ CA.moveLeft 65, CA.rotate 90 ]
+              [ S.text "Number of MAGs" ]
+        , C.labelAt CA.middle .min [ CA.moveDown 30 ]
+              [ S.text "Quality" ]
 
         , C.bars []
             [ C.bar .c []
@@ -294,3 +311,44 @@ viewQualitySummary sel =
             , { c = medium, label = "Medium"}
             ]
         ]
+
+viewNrContigs sel =
+    let
+        groups = sel
+            |> List.map .nrContigs
+            |> List.map (\x ->
+                    if x < 2
+                        then String.fromInt x
+                    else if x < 6
+                        then "2-5"
+                    else if x < 10
+                        then "6-9"
+                    else if x < 20
+                        then "10-19"
+                    else if x < 50
+                        then "20-49"
+                    else if x < 100
+                        then "50-99"
+                    else "100+")
+        data =
+            ["1", "2-5", "6-9", "10-19", "20-49", "50-99", "100+"]
+                |> List.map (\x -> { c = (groups |> List.filter ((==) x) |> List.length |> toFloat)
+                                    , label = x })
+
+    in
+        C.chart
+        [
+        ]
+        [ C.yLabels [ CA.withGrid ]
+        , C.binLabels .label [ CA.moveDown 12, CA.fontSize 10 ]
+        , C.labelAt .min CA.middle [ CA.moveLeft 65, CA.rotate 90 ]
+              [ S.text "Number of MAGs" ]
+        , C.labelAt CA.middle .max [ CA.fontSize 14 ]
+              [ S.text "Number of contigs in genome" ]
+        , C.bars []
+            [ C.bar .c []
+            ]
+            data
+        ]
+
+
