@@ -241,10 +241,19 @@ showTree showDownloadModal treeNode =
                 , HtmlAttr.class ("taxonomy-node-" ++ tlevel)]
         (card :: (case treeNode of
             CollapsedNode _ children ->
-                [ Html.p []
+                ( Html.p []
                     [ Html.text ("Number of genomes: " ++ String.fromInt (List.length children))
                     ]
-                ]
+                ::
+                (if name == "r__Root" && List.length children > 1 then
+                    []
+                else
+                    [ Html.p []
+                        [ Html.a [ HtmlAttr.href ("/genomes?taxonomy=" ++ name)]
+                            [ Html.text "[Genomes in table]" ]
+                        ]
+                    ]
+                ))
             ExpandedNode _ children ->
                 (List.map (showTree showDownloadModal) children)
             LeafNode _ children ->
