@@ -88,7 +88,7 @@ view { toContentMsg, model, content } =
                     , Grid.col [] [ Html.a [HtmlAttr.href "/about"] [Html.text "About&Contact"]]
                     ]
                 ]
-            , Html.div []
+            , Grid.containerFluid []
                 (content.body)
             , Html.div [HtmlAttr.id "footer"]
                 [ Html.p []
