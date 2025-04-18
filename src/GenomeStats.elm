@@ -6,6 +6,7 @@ module GenomeStats exposing (chartNrContigs,
 
 
 import Html
+import Html.Attributes as HtmlAttr
 import Svg as S
 import Svg.Attributes as SA
 import Svg.Events as SE
@@ -113,14 +114,42 @@ chartQualityScatter onHover hovering sel =
           [ S.text "Completeness" ]
 
     , C.each hovering <| \p item ->
-        [ C.tooltip item [] [] [Html.text <| simplifyTaxonomy (CI.getData item).taxonomy] ]
+        [ C.tooltip item [] []
+            [
+                let
+                    m = CI.getData item
+                in
+                    Html.span [
+                        HtmlAttr.style "font-weight"
+                            (if m.isRepresentative
+                                then "bold"
+                                else "normal")
+                        ] [
+                       Html.text <| simplifyTaxonomy m.taxonomy]
+            ]
+        ]
 
     , C.series .completeness
         [C.scatter .contamination []
               |> C.amongst hovering (\datum -> [ CA.highlight 0.5 ])
+              |> C.variation
+                    (\ix mag ->
+                        [CA.color
+                            (if mag.isRepresentative then
+                                "green"
+                            else
+                                "orange")
+                        ]
+                    )
 
         ]
-        sel
+        -- draw the non-representative genomes first
+        -- so that the representative genomes are on top
+        (
+            (sel |> List.filter (.isRepresentative >> not))
+            ++
+            (sel |> List.filter .isRepresentative)
+        )
     ]
 
 simplifyTaxonomy t =
