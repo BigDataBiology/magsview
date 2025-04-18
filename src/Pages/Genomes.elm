@@ -115,7 +115,8 @@ view model =
             |> (if String.isEmpty model.taxonomyFilter
                     then identity
                     else List.filter (\t ->
-                            String.contains model.taxonomyFilter
+                            String.contains
+                                (String.toLower model.taxonomyFilter)
                                 (String.toLower t.taxonomy))
                 )
 
