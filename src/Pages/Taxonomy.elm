@@ -43,15 +43,14 @@ nameOf treeNode =
 
 type alias Model =
     { tree : TreeNode
-    , showDownloadModal : Maybe String
+    , showDownloadModal : Maybe (List MAG)
     }
 
 
 type Msg =
     ExpandNode String
     | CollapseNode String
-    | DownloadAll
-    | DownloadReps
+    | DownloadMAGs (List MAG)
     | ClearDownload
 
 type alias RouteParams =
@@ -97,8 +96,7 @@ update msg model =
         nmodel = case msg of
             ExpandNode target -> { model | tree = expandNode 0 target model.tree }
             CollapseNode target -> { model | tree = collapseNode target model.tree }
-            DownloadAll -> { model | showDownloadModal = Just "all" }
-            DownloadReps -> { model | showDownloadModal = Just "reps" }
+            DownloadMAGs ms -> { model | showDownloadModal = Just ms }
             ClearDownload -> { model | showDownloadModal = Nothing }
     in
         ( nmodel
@@ -197,7 +195,7 @@ view model =
             ]
         }
 
-showTree : Maybe String -> TreeNode -> Html.Html Msg
+showTree : Maybe (List MAG) -> TreeNode -> Html.Html Msg
 showTree showDownloadModal treeNode =
     let
         name = nameOf treeNode
@@ -270,19 +268,26 @@ showTree showDownloadModal treeNode =
                     [ ButtonGroup.buttonGroup
                         [ ButtonGroup.small ]
                         [ ButtonGroup.button [ Button.outlinePrimary, Button.small
-                            , Button.onClick DownloadReps]
+                            , Button.onClick (DownloadMAGs <| List.filter (.isRepresentative) children) ]
                             [ Html.text "Download representatives" ]
                         , ButtonGroup.button
                             [ Button.outlinePrimary , Button.small
-                            , Button.onClick DownloadAll]
+                            , Button.onClick (DownloadMAGs children) ]
                             [ Html.text "Download all" ]
                         ]
                     ]
                 , Modal.view []
                     { isOpen = showDownloadModal /= Nothing
                     , onClose = Just ClearDownload
-                    , content = [Html.pre []
-                        [ Html.text "Downloading genomes is not yet implemented."]
+                    , content = [Html.div []
+                        [Html.pre []
+                        ((Html.text "# Run this command to download the genomes:\n")::
+                        (showDownloadModal
+                            |> Maybe.withDefault []
+                            |> List.map (\m ->
+                                Html.text <| "wget https://mags-base.big-data-biology.org/SH_DOGS/" ++ m.id ++ ".fna.gz\n"
+                            )
+                        ))]
                         ]
                     }
                 ]
