@@ -13,9 +13,11 @@ import Svg as S
 import Svg.Attributes as SA
 import Svg.Events as SE
 
-import Html as H
 import Chart as C
 import Chart.Attributes as CA
+import Chart.Events as CE
+import Chart.Item as CI
+
 
 
 import Shared
@@ -54,6 +56,8 @@ type alias Model =
     , taxonomyFilter : String
 
     , showFullTaxonomy : Bool
+
+    , hovering : List (CI.One MAG CI.Dot)
     }
 
 type Msg =
@@ -61,6 +65,10 @@ type Msg =
     | SetRepsOnly Bool
     | UpdateTaxonomyFilter String
     | ToggleShowFullTaxonomy
+    | OnHover (List (CI.One MAG CI.Dot))
+
+
+
 
 
 init : Route () -> () -> (Model, Effect Msg)
@@ -72,6 +80,7 @@ init route () =
             , repsOnly = False
             , taxonomyFilter = ""
             , showFullTaxonomy = False
+            , hovering = []
             }
         model = case Dict.get "taxonomy" route.query of
             Just taxonomy ->
@@ -126,6 +135,8 @@ update msg model =
                 { model | taxonomyFilter = filter }
             ToggleShowFullTaxonomy ->
                 { model | showFullTaxonomy = not model.showFullTaxonomy }
+            OnHover hovering ->
+              { model | hovering = hovering }
     in
         ( nmodel
         , Effect.none
@@ -176,12 +187,6 @@ view model =
                 (\x -> x)
             else
                 simplifyTaxonomy
-        simplifyTaxonomy t =
-            String.split ";" t
-                |> List.reverse
-                |> List.filter (\s -> String.length s > 3)
-                |> List.head
-                |> Maybe.withDefault ""
         taxonomyHeader =
             Table.th
                 [
@@ -227,7 +232,7 @@ view model =
                             ] []
                         ]
                     ]
-                )::(viewCharts sel))
+                )::(viewCharts model sel))
             , Grid.simpleRow [ Grid.col [ ] [Table.table
                 { options = [ Table.striped, Table.hover, Table.responsive ]
                 , thead =  Table.simpleThead
@@ -260,7 +265,7 @@ view model =
             ]]]
         }
 
-viewCharts sel =
+viewCharts model sel =
     [ Grid.col []
         [ Html.div
             [HtmlAttr.style "width" "180px"
@@ -273,7 +278,7 @@ viewCharts sel =
             [HtmlAttr.style "width" "180px"
             ,HtmlAttr.style "height" "180px"
             ]
-            [viewQualityScatter sel]
+            [viewQualityScatter model sel]
         ]
     , Grid.col []
         [ Html.div
@@ -284,18 +289,26 @@ viewCharts sel =
         ]
     ]
 
-viewQualityScatter sel =
+viewQualityScatter model sel =
   C.chart
-    [ ]
+    [ CE.onMouseMove OnHover (CE.getNearest CI.dots)
+    , CE.onMouseLeave (OnHover [])
+    ]
     [ C.xLabels [ CA.withGrid ]
     , C.yLabels [ CA.withGrid ]
+
     , C.labelAt .min CA.middle [ CA.moveLeft 35, CA.rotate 90 ]
           [ S.text "Contamination" ]
     , C.labelAt CA.middle .min [ CA.moveDown 30 ]
           [ S.text "Completeness" ]
 
+    , C.each model.hovering <| \p item ->
+        [ C.tooltip item [] [] [Html.text <| simplifyTaxonomy (CI.getData item).taxonomy] ]
+
     , C.series .completeness
         [C.scatter .contamination []
+              |> C.amongst model.hovering (\datum -> [ CA.highlight 0.5 ])
+
         ]
         sel
     ]
@@ -363,3 +376,9 @@ viewNrContigs sel =
         ]
 
 
+simplifyTaxonomy t =
+    String.split ";" t
+        |> List.reverse
+        |> List.filter (\s -> String.length s > 3)
+        |> List.head
+        |> Maybe.withDefault ""
