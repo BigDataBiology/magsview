@@ -19,8 +19,7 @@ import Chart.Events as CE
 import Chart.Item as CI
 
 
-
-import Shared
+import Layouts
 import Effect exposing (Effect)
 import View exposing (View)
 
@@ -34,11 +33,9 @@ import Bootstrap.Table as Table
 
 import DataModel exposing (MAG)
 import Data exposing (mags)
-import Layouts
+import GenomeStats exposing (simplifyTaxonomy)
+import Shared
 
-type Quality
-    = High
-    | Medium
 
 
 type SortOrder =
@@ -93,21 +90,6 @@ init route () =
         ( model
         , Effect.none
         )
-
-magQuality : MAG -> Quality
-magQuality mag =
-    if mag.completeness > 90.0 && mag.contamination < 5.0 then
-        High
-    else Medium
-
-qualityString : Quality -> String
-qualityString quality =
-    case quality of
-        High ->
-            "High"
-
-        Medium ->
-            "Medium"
 
 page : Shared.Model -> Route () -> Page Model Msg
 page _ route =
@@ -271,114 +253,21 @@ viewCharts model sel =
             [HtmlAttr.style "width" "180px"
             ,HtmlAttr.style "height" "180px"
             ]
-            [viewQualitySummary sel]
+            [GenomeStats.chartQualitySummary sel]
         ]
     , Grid.col []
         [ Html.div
             [HtmlAttr.style "width" "180px"
             ,HtmlAttr.style "height" "180px"
             ]
-            [viewQualityScatter model sel]
+            [GenomeStats.chartQualityScatter OnHover model.hovering sel]
         ]
     , Grid.col []
         [ Html.div
             [HtmlAttr.style "width" "180px"
             ,HtmlAttr.style "height" "180px"
             ]
-            [viewNrContigs sel]
+            [GenomeStats.chartNrContigs sel]
         ]
     ]
 
-viewQualityScatter model sel =
-  C.chart
-    [ CE.onMouseMove OnHover (CE.getNearest CI.dots)
-    , CE.onMouseLeave (OnHover [])
-    ]
-    [ C.xLabels [ CA.withGrid ]
-    , C.yLabels [ CA.withGrid ]
-
-    , C.labelAt .min CA.middle [ CA.moveLeft 35, CA.rotate 90 ]
-          [ S.text "Contamination" ]
-    , C.labelAt CA.middle .min [ CA.moveDown 30 ]
-          [ S.text "Completeness" ]
-
-    , C.each model.hovering <| \p item ->
-        [ C.tooltip item [] [] [Html.text <| simplifyTaxonomy (CI.getData item).taxonomy] ]
-
-    , C.series .completeness
-        [C.scatter .contamination []
-              |> C.amongst model.hovering (\datum -> [ CA.highlight 0.5 ])
-
-        ]
-        sel
-    ]
-
-viewQualitySummary sel =
-    let
-        qs = sel |> List.map (magQuality >> qualityString)
-        high = List.filter ((==) "High") qs |> List.length |> toFloat
-        medium = List.filter ((==) "Medium") qs |> List.length |> toFloat
-    in
-        C.chart
-        [ ]
-        [ C.yLabels [ CA.withGrid ]
-        , C.binLabels .label [ CA.moveDown 20 ]
-        , C.labelAt .min CA.middle [ CA.moveLeft 65, CA.rotate 90 ]
-              [ S.text "Number of MAGs" ]
-        , C.labelAt CA.middle .min [ CA.moveDown 30 ]
-              [ S.text "Quality" ]
-
-        , C.bars []
-            [ C.bar .c []
-            ]
-            [ { c = high, label = "High"}
-            , { c = medium, label = "Medium"}
-            ]
-        ]
-
-viewNrContigs sel =
-    let
-        groups = sel
-            |> List.map .nrContigs
-            |> List.map (\x ->
-                    if x < 2
-                        then String.fromInt x
-                    else if x < 6
-                        then "2-5"
-                    else if x < 10
-                        then "6-9"
-                    else if x < 20
-                        then "10-19"
-                    else if x < 50
-                        then "20-49"
-                    else if x < 100
-                        then "50-99"
-                    else "100+")
-        data =
-            ["1", "2-5", "6-9", "10-19", "20-49", "50-99", "100+"]
-                |> List.map (\x -> { c = (groups |> List.filter ((==) x) |> List.length |> toFloat)
-                                    , label = x })
-
-    in
-        C.chart
-        [
-        ]
-        [ C.yLabels [ CA.withGrid ]
-        , C.binLabels .label [ CA.moveDown 12, CA.fontSize 10 ]
-        , C.labelAt .min CA.middle [ CA.moveLeft 65, CA.rotate 90 ]
-              [ S.text "Number of MAGs" ]
-        , C.labelAt CA.middle .max [ CA.fontSize 14 ]
-              [ S.text "Number of contigs in genome" ]
-        , C.bars []
-            [ C.bar .c []
-            ]
-            data
-        ]
-
-
-simplifyTaxonomy t =
-    String.split ";" t
-        |> List.reverse
-        |> List.filter (\s -> String.length s > 3)
-        |> List.head
-        |> Maybe.withDefault ""
