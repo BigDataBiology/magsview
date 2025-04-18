@@ -47,17 +47,17 @@ chartNrContigs sel =
                         then String.fromInt x
                     else if x < 6
                         then "2-5"
-                    else if x < 10
-                        then "6-9"
-                    else if x < 20
-                        then "10-19"
-                    else if x < 50
-                        then "20-49"
+                    else if x < 11
+                        then "6-10"
+                    else if x < 21
+                        then "11-20"
+                    else if x < 51
+                        then "21-50"
                     else if x < 100
                         then "50-99"
                     else "100+")
         data =
-            ["1", "2-5", "6-9", "10-19", "20-49", "50-99", "100+"]
+            ["1", "2-5", "6-10", "11-20", "21-50", "51-99", "100+"]
                 |> List.map (\x -> { c = (groups |> List.filter ((==) x) |> List.length |> toFloat)
                                     , label = x })
 
@@ -66,10 +66,10 @@ chartNrContigs sel =
         [
         ]
         [ C.yLabels [ CA.withGrid ]
-        , C.binLabels .label [ CA.moveDown 12, CA.fontSize 10 ]
+        , C.binLabels .label [ CA.moveDown 14, CA.fontSize 14 ]
         , C.labelAt .min CA.middle [ CA.moveLeft 65, CA.rotate 90 ]
               [ S.text "Number of MAGs" ]
-        , C.labelAt CA.middle .max [ CA.fontSize 14 ]
+        , C.labelAt CA.middle .min [ CA.moveDown 30 ]
               [ S.text "Number of contigs in genome" ]
         , C.bars []
             [ C.bar .c []
