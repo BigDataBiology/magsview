@@ -44,6 +44,7 @@ type SortOrder =
     | ByTaxonomy
     | ByCompleteness
     | ByContamination
+    | ByNrContigs
 
 type alias Model =
     { qualityFilter : Maybe String
@@ -148,6 +149,8 @@ view model =
                         ("", -t.completeness)
                     ByContamination ->
                         ("", t.contamination)
+                    ByNrContigs ->
+                        ("", toFloat t.nrContigs)
                         )
             |> (if model.repsOnly
                     then List.filter .isRepresentative
@@ -227,6 +230,7 @@ view model =
                     [ theader ById "MAG ID"
                     , theader ByCompleteness "Completeness"
                     , theader ByContamination "Contamination"
+                    , theader ByNrContigs "#Contigs"
                     , taxonomyHeader
                     ]
                 , tbody =
@@ -242,6 +246,7 @@ view model =
                                                 ]
                                 , Table.td [] [ Html.text (t.completeness |> String.fromFloat) ]
                                 , Table.td [] [ Html.text (t.contamination |> String.fromFloat) ]
+                                , Table.td [] [ Html.text (t.nrContigs |> String.fromInt) ]
                                 , Table.td [] [ Html.text <| maybeSimplifyTaxonomy t.taxonomy ]
                                 ])
                         |> Table.tbody []
