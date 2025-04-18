@@ -26,6 +26,7 @@ type alias MAG =
     , taxonomy : String
     , completeness : Float
     , contamination : Float
+    , genomeSize : Int
     , r16sRrna : Int
     , r5sRrna : Int
     , r23sRrna : Int

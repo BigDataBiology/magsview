@@ -11,6 +11,7 @@ decoder =
         |> Decode.pipeline (Decode.field "taxonomy" Decode.string)
         |> Decode.pipeline (Decode.field "completeness" Decode.float)
         |> Decode.pipeline (Decode.field "contamination" Decode.float)
+        |> Decode.pipeline (Decode.field "genome_size" Decode.int)
         |> Decode.pipeline (Decode.field "#16s_rrna" Decode.int)
         |> Decode.pipeline (Decode.field "#5s_rrna" Decode.int)
         |> Decode.pipeline (Decode.field "#23s_rrna" Decode.int)

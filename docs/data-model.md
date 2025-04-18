@@ -36,6 +36,7 @@ Contains the following fields:
 - `#trna` (int): Number of tRNA genes in the MAG.
 - `nr_contigs` (int): Number of contigs in the MAG.
 - `nr_genes` (int): Number of genes in the MAG.
+- `size` (int): Size of the MAG in base pairs.
 - `is_representative` (bool): Whether the MAG is representative for its species.
 - `binning_tool` (string): Tool used for binning.
 - `assembly_method` (string): Method used for assembly.

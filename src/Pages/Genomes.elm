@@ -45,6 +45,7 @@ type SortOrder =
     | ByCompleteness
     | ByContamination
     | ByNrContigs
+    | ByGenomeSize
 
 type alias Model =
     { qualityFilter : Maybe String
@@ -151,7 +152,10 @@ view model =
                         ("", t.contamination)
                     ByNrContigs ->
                         ("", toFloat t.nrContigs)
+                    ByGenomeSize ->
+                        ("", toFloat <| -t.genomeSize)
                         )
+
             |> (if model.repsOnly
                     then List.filter .isRepresentative
                     else identity)
@@ -231,6 +235,7 @@ view model =
                     , theader ByCompleteness "Completeness"
                     , theader ByContamination "Contamination"
                     , theader ByNrContigs "#Contigs"
+                    , theader ByGenomeSize "Genome size (Mbp)"
                     , taxonomyHeader
                     ]
                 , tbody =
@@ -247,6 +252,7 @@ view model =
                                 , Table.td [] [ Html.text (t.completeness |> String.fromFloat) ]
                                 , Table.td [] [ Html.text (t.contamination |> String.fromFloat) ]
                                 , Table.td [] [ Html.text (t.nrContigs |> String.fromInt) ]
+                                , Table.td [] [ Html.text (t.genomeSize |> (\s -> toFloat (s // 1000// 10) /100.0) |> String.fromFloat) ]
                                 , Table.td [] [ Html.text <| maybeSimplifyTaxonomy t.taxonomy ]
                                 ])
                         |> Table.tbody []
