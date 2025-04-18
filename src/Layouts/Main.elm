@@ -82,8 +82,8 @@ view { toContentMsg, model, content } =
                 Html.nav []
                 [Grid.simpleRow
                     [ Grid.col [] [ Html.a [HtmlAttr.href "/"] [Html.text "Home"]]
-                    , Grid.col [] [ Html.a [HtmlAttr.href "/genomes"] [Html.text "Genomes"]]
                     , Grid.col [] [ Html.a [HtmlAttr.href "/taxonomy"] [Html.text "Taxonomy"]]
+                    , Grid.col [] [ Html.a [HtmlAttr.href "/genomes"] [Html.text "Genomes"]]
                     , Grid.col [] [ Html.a [HtmlAttr.href "/other"] [Html.text "Other Data"]]
                     , Grid.col [] [ Html.a [HtmlAttr.href "/about"] [Html.text "About&Contact"]]
                     ]
