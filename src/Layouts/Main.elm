@@ -78,24 +78,27 @@ view { toContentMsg, model, content } =
         , Html.node "link" [ HtmlAttr.rel "stylesheet", HtmlAttr.href "/magsview.css" ] []
         , Html.node "link" [ HtmlAttr.rel "stylesheet", HtmlAttr.href "/style.css" ] []
         , Html.main_ []
-            [
-                Html.nav []
-                [Grid.simpleRow
-                    [ Grid.col [] [ Html.a [HtmlAttr.href "/"] [Html.text "Home"]]
-                    , Grid.col [] [ Html.a [HtmlAttr.href "/taxonomy"] [Html.text "Taxonomy"]]
-                    , Grid.col [] [ Html.a [HtmlAttr.href "/genomes"] [Html.text "Genomes"]]
-                    , Grid.col [] [ Html.a [HtmlAttr.href "/other"] [Html.text "Other Data"]]
-                    , Grid.col [] [ Html.a [HtmlAttr.href "/about"] [Html.text "About&Contact"]]
+            [ Grid.containerFluid []
+                [
+                    Html.nav []
+                        [Grid.simpleRow
+                            [ Grid.col [] [ Html.a [HtmlAttr.href "/"] [Html.text "Home"]]
+                            , Grid.col [] [ Html.a [HtmlAttr.href "/taxonomy"] [Html.text "Taxonomy"]]
+                            , Grid.col [] [ Html.a [HtmlAttr.href "/genomes"] [Html.text "Genomes"]]
+                            , Grid.col [] [ Html.a [HtmlAttr.href "/other"] [Html.text "Other Data"]]
+                            , Grid.col [] [ Html.a [HtmlAttr.href "/about"] [Html.text "About&Contact"]]
+                            ]
+                        ]
+                , Grid.simpleRow [ Grid.col []
+                    (content.body)
                     ]
-                ]
-            , Grid.containerFluid []
-                (content.body)
-            , Html.div [HtmlAttr.id "footer"]
-                [ Html.p []
-                    [ Html.text "For more information about the data, please see "
-                    , Html.a
-                        [HtmlAttr.href "#"]
-                        [ Html.text "(Cuscó et al. 2025)"]
+                , Html.div [HtmlAttr.id "footer"]
+                    [ Html.p []
+                        [ Html.text "For more information about the data, please see "
+                        , Html.a
+                            [HtmlAttr.href "#"]
+                            [ Html.text "(Cuscó et al. 2025)"]
+                        ]
                     ]
                 ]
             ]
