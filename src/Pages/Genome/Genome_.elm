@@ -22,6 +22,7 @@ import Shared
 import Data exposing (mags)
 import DataModel exposing (MAG)
 import Layouts
+import GenomeStats exposing (simplifyTaxonomy)
 
 -- INIT
 
@@ -83,16 +84,71 @@ view sm route model =
                 [ Html.text "Back to genomes" ]
             ]
         }
+
+showWithCommas : Int -> String
+showWithCommas n =
+    let
+        addCommas s =
+            if String.length s <= 3
+                then s
+            else (addCommas (String.slice 0 (String.length s - 3) s)) ++ "," ++ String.slice (String.length s - 3) (String.length s) s
+    in
+        addCommas (String.fromInt n)
+
 showMag : MAG -> List (Html.Html Msg)
 showMag mag =
     [ Html.h1 []
         [ Html.text ("Genome: " ++ mag.id) ]
-    , Html.p []
-        [ Html.text ("Taxonomy: " ++ mag.taxonomy) ]
-    , Html.p []
-        [ Html.text ("Completeness: " ++ String.fromFloat mag.completeness) ]
-    , Html.p []
-        [ Html.text ("Contamination: " ++ String.fromFloat mag.contamination) ]
-    , Html.p []
-        [ Html.text ("Is Representative: " ++ (if mag.isRepresentative then "Yes" else "No")) ]
-    ]
+    , Html.h2 []
+        [ Html.text "MAG Information" ]
+    , Grid.simpleRow [ Grid.col [ ] [
+        Table.table
+            { options = [ Table.striped, Table.hover, Table.responsive ]
+            , thead =  Table.simpleThead
+                [ Table.th []
+                    [ Html.text "Property" ]
+                , Table.th []
+                    [ Html.text "Value" ]
+                ]
+        , tbody = Table.tbody []
+            (let
+                basicTR title value =
+                    Table.tr []
+                        [ Table.td []
+                            [ Html.text title ]
+                        , Table.td []
+                            [ Html.text value ]
+                        ]
+            in
+                [basicTR "Genome ID" mag.id
+                , Table.tr []
+                    [ Table.td []
+                        [Html.text "Taxonomy (GTDB)"]
+                    , Table.td []
+                        (mag.taxonomy
+                            |> String.split ";"
+                            |> List.map (\t -> Html.text t)
+                            |> List.intersperse (Html.br [] [])
+                            )
+                    ]
+                , Table.tr []
+                    [ Table.td []
+                        [Html.text "Is Representative"]
+                    , Table.td []
+                        [Html.text (if mag.isRepresentative then "Yes" else "No")
+                        , Html.a [HtmlAttr.href ("/genomes?taxonomy="++ mag.taxonomy)
+                            ]
+                            [ Html.text <| " [show all genomes of "++simplifyTaxonomy mag.taxonomy++"]" ]
+                        ]
+                    ]
+                , basicTR "#Contigs" (String.fromInt mag.nrContigs)
+                , basicTR "Genome Size (bp)" (showWithCommas mag.genomeSize)
+                , basicTR "Completeness (%)" (String.fromFloat mag.completeness)
+                , basicTR "Contamination (%)" (String.fromFloat mag.contamination)
+                , basicTR "#16s rRNA" (String.fromInt mag.r16sRrna)
+                , basicTR "#23s rRNA" (String.fromInt mag.r23sRrna)
+                , basicTR "#5s rRNA" (String.fromInt mag.r5sRrna)
+                , basicTR "#tRNA" (String.fromInt mag.trna)
+            ])
+        }
+    ]]]
