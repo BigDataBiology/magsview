@@ -24,6 +24,7 @@ import Effect exposing (Effect)
 import View exposing (View)
 
 import W.InputCheckbox as InputCheckbox
+import W.InputSlider as InputSlider
 import Bootstrap.Button as Button
 import Bootstrap.Form.Input as Input
 import Bootstrap.Grid as Grid
@@ -51,6 +52,7 @@ type alias Model =
     , sortOrder : SortOrder
     , repsOnly : Bool
     , taxonomyFilter : String
+    , maxNrContigsStep : Float
 
     , showFullTaxonomy : Bool
 
@@ -61,6 +63,7 @@ type Msg =
     SetSortOrder SortOrder
     | SetRepsOnly Bool
     | UpdateTaxonomyFilter String
+    | UpdateMaxNrContigs Float
     | ToggleShowFullTaxonomy
     | OnHover (List (CI.One MAG CI.Dot))
 
@@ -76,6 +79,7 @@ init route () =
             , sortOrder = ById
             , repsOnly = False
             , taxonomyFilter = ""
+            , maxNrContigsStep = 6
             , showFullTaxonomy = False
             , hovering = []
             }
@@ -102,6 +106,22 @@ page _ route =
     |> Page.withLayout (\_ -> Layouts.Main {})
 
 
+step2maxContigs : Float -> Int
+step2maxContigs step =
+    if step < 0.5
+        then 1
+    else if step < 1.5
+        then 5
+    else if step < 2.5
+        then 10
+    else if step < 3.5
+        then 20
+    else if step < 4.5
+        then 50
+    else if step < 5.5
+        then 100
+    else -1
+
 update :
     Msg
     -> Model
@@ -115,6 +135,8 @@ update msg model =
                 { model | repsOnly = ro }
             UpdateTaxonomyFilter filter ->
                 { model | taxonomyFilter = filter }
+            UpdateMaxNrContigs step ->
+                { model | maxNrContigsStep = step }
             ToggleShowFullTaxonomy ->
                 { model | showFullTaxonomy = not model.showFullTaxonomy }
             OnHover hovering ->
@@ -159,14 +181,19 @@ view model =
                                 (String.toLower model.taxonomyFilter)
                                 (String.toLower t.taxonomy))
                 )
+            |> (if maxNrContigs > 0
+                    then List.filter (\t -> t.nrContigs <= maxNrContigs)
+                    else identity)
 
+        maxNrContigs =
+            step2maxContigs model.maxNrContigsStep
         theader sortO h =
                 Table.th
                     [ Table.cellAttr <| HE.onClick ( SetSortOrder sortO)
                     ] [ Html.a [HtmlAttr.href "#" ] [ Html.text h ] ]
         maybeSimplifyTaxonomy =
             if model.showFullTaxonomy then
-                (\x -> x)
+                identity
             else
                 simplifyTaxonomy
         taxonomyHeader =
@@ -208,6 +235,22 @@ view model =
                             , Input.value model.taxonomyFilter
                             , Input.onInput UpdateTaxonomyFilter
                             ]
+                        ]
+                    , Html.p []
+                        [ Html.text "Max # contigs: "
+                        , Html.text (
+                            if maxNrContigs < 0
+                                then "no limit"
+                            else if maxNrContigs == 1
+                                then "1 (single contig only)"
+                            else (String.fromInt maxNrContigs ++ " contigs"))
+                        , InputSlider.view []
+                            { min = 0
+                            , max = 6
+                            , step = 1
+                            , value = model.maxNrContigsStep
+                            , onInput = UpdateMaxNrContigs
+                            }
                         ]
                     ]
                 )::(viewCharts model sel))
