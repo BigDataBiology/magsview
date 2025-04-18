@@ -10,5 +10,5 @@ mags = case loadData magsBlob of
     Ok r ->
         r
     Err err ->
-        Debug.log ("Error loading data: " ++ Debug.toString err) []
+        []
 
