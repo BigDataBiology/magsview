@@ -185,13 +185,14 @@ view model =
                 [ Html.h1 []
                     [ Html.text "Taxonomy explorer" ]
                 ]
-            , showTree model.showDownloadModal model.tree
+            , showTree [] model.showDownloadModal model.tree
             ]
         }
 
-showTree : Maybe (List MAG) -> TreeNode -> Html.Html Msg
-showTree showDownloadModal treeNode =
+showTree : List String -> Maybe (List MAG) -> TreeNode -> Html.Html Msg
+showTree path showDownloadModal treeNode =
     let
+        name : String
         name = nameOf treeNode
         tlevel = case String.split "__" name of
             [] -> "root"
@@ -206,6 +207,12 @@ showTree showDownloadModal treeNode =
                 "g" -> "genus"
                 "s" -> "species"
                 _ -> "unknown"
+        pathStr : String
+        pathStr =
+            (name::path)
+                |> List.reverse
+                |> List.filter (\x -> not (String.startsWith "r__" x))
+                |> String.join ";"
         sname = case String.split "__" name of
             [_, x] -> String.replace "_" " " x
             _ -> ""
@@ -243,13 +250,13 @@ showTree showDownloadModal treeNode =
                     []
                 else
                     [ Html.p []
-                        [ Html.a [ HtmlAttr.href ("/genomes?taxonomy=" ++ name)]
+                        [ Html.a [ HtmlAttr.href ("/genomes?taxonomy=" ++ pathStr ++ "&taxnav=1")]
                             [ Html.text "[Genomes in table]" ]
                         ]
                     ]
                 ))
             ExpandedNode _ children ->
-                (List.map (showTree showDownloadModal) children)
+                (List.map (showTree (name::path) showDownloadModal) children)
             LeafNode _ children ->
                 [ Html.ol []
                     ( children
@@ -268,7 +275,7 @@ showTree showDownloadModal treeNode =
                 , Html.p [HtmlAttr.style "font-size" "small"]
                     [ Html.text "Bolded elements are the species-representative MAGs" ]
                 , Html.p [HtmlAttr.style "text-align" "right"]
-                    [ Html.a [ HtmlAttr.href ("/genomes?taxonomy=" ++ name)
+                    [ Html.a [ HtmlAttr.href ("/genomes?taxonomy=" ++ pathStr ++ "&taxnav=1")
                             , HtmlAttr.style "padding-right" "18px"
                             ]
                         [ Html.text "[Genomes in table]" ]

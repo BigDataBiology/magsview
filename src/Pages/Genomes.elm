@@ -52,6 +52,7 @@ type alias Model =
     , sortOrder : SortOrder
     , repsOnly : Bool
     , taxonomyFilter : String
+    , taxonomyUpActive : Bool
     , maxNrContigsStep : Float
 
     , showFullTaxonomy : Bool
@@ -79,17 +80,24 @@ init route () =
             , sortOrder = ById
             , repsOnly = False
             , taxonomyFilter = ""
+            , taxonomyUpActive = False
             , maxNrContigsStep = 6
             , showFullTaxonomy = False
             , hovering = []
             }
-        model = case Dict.get "taxonomy" route.query of
+        model1 = case Dict.get "taxonomy" route.query of
             Just taxonomy ->
                { model0
                     | taxonomyFilter = taxonomy
                     , showFullTaxonomy = True
               }
             Nothing -> model0
+        model =
+            case Dict.get "taxnav" route.query of
+                Just "1" ->
+                    { model1 | taxonomyUpActive = True }
+                _ ->
+                    model1
     in
         ( model
         , Effect.none
@@ -134,7 +142,9 @@ update msg model =
             SetRepsOnly ro ->
                 { model | repsOnly = ro }
             UpdateTaxonomyFilter filter ->
-                { model | taxonomyFilter = filter }
+                { model | taxonomyFilter = filter
+                        , taxonomyUpActive = upOneLevel filter /= filter
+                        }
             UpdateMaxNrContigs step ->
                 { model | maxNrContigsStep = step }
             ToggleShowFullTaxonomy ->
@@ -146,6 +156,25 @@ update msg model =
         , Effect.none
         )
 
+
+last : List a -> Maybe a
+last xs =
+    case List.reverse xs of
+        [] ->
+            Nothing
+        x :: _ ->
+            Just x
+
+upOneLevel : String -> String
+upOneLevel taxonomy =
+    case last (String.indexes ";" taxonomy) of
+        Nothing ->
+            taxonomy
+        Just i ->
+            if i > 0 then
+                String.left i taxonomy
+            else
+                taxonomy
 
 view :
     Model
@@ -230,6 +259,15 @@ view model =
                         ]
                     , Html.p []
                         [ Html.text "Taxonomy filter: "
+                        , Html.span []
+                            (if model.taxonomyUpActive
+                                then
+                                    [ Html.a [HE.onClick (UpdateTaxonomyFilter <| upOneLevel model.taxonomyFilter), HtmlAttr.href "#"]
+                                        [ Html.text "[go up one level]" ]
+                                    ]
+                                else
+                                    [ ]
+                            )
                         , Input.text
                             [ Input.placeholder "Enter taxonomy"
                             , Input.value model.taxonomyFilter
