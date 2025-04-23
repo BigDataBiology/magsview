@@ -268,7 +268,11 @@ showTree showDownloadModal treeNode =
                 , Html.p [HtmlAttr.style "font-size" "small"]
                     [ Html.text "Bolded elements are the species-representative MAGs" ]
                 , Html.p [HtmlAttr.style "text-align" "right"]
-                    [ ButtonGroup.buttonGroup
+                    [ Html.a [ HtmlAttr.href ("/genomes?taxonomy=" ++ name)
+                            , HtmlAttr.style "padding-right" "18px"
+                            ]
+                        [ Html.text "[Genomes in table]" ]
+                    , ButtonGroup.buttonGroup
                         [ ButtonGroup.small ]
                         [ ButtonGroup.button [ Button.outlinePrimary, Button.small
                             , Button.onClick (DownloadMAGs <| List.filter (.isRepresentative) children) ]
