@@ -31,6 +31,8 @@ content key = case key of
         contentAbout
     "other" ->
         contentOther
+    "manuscript" ->
+        contentManuscript
     _ ->
         contentOther
 
@@ -38,7 +40,9 @@ contentAbout : String
 contentAbout = """
 ## Shanghai dog gut microbiome
 
-About
+This was a project led by _Anna Cuscó_ (Fudan University) in the [Big Data Biology Lab](https://big-data-biology.org) led by _Luis Pedro Coelho_. The project is currently being finalized for publication. The data will also be made available at a suitable repository.
+
+Please contact us if you are interested in the data: [anna@big-data-biology.org](mailto:anna@big-data-biology.org) or [luispedro@big-data-biology.org](mailto:luispedro@big-data-biology.rorg).
 """
 
 contentOther : String
@@ -46,5 +50,12 @@ contentOther = """
 ## Shanghai dog gut microbiome
 
 Other
+"""
+
+contentManuscript : String
+contentManuscript = """
+## A manuscript is under preparation
+
+Manuscript
 """
 

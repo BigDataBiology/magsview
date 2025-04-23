@@ -96,7 +96,7 @@ view { toContentMsg, model, content } =
                     [ Html.p []
                         [ Html.text "For more information about the data, please see "
                         , Html.a
-                            [HtmlAttr.href "#"]
+                            [HtmlAttr.href "/manuscript"]
                             [ Html.text "(Cuscó et al. 2025)"]
                         ]
                     ]
