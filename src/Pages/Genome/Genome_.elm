@@ -395,7 +395,7 @@ showARGs model mag =
                         (magdata.argData
                             |> List.map (\arg ->
                                     Table.tr []
-                                        [Table.td [] [Html.p [HE.onClick ToggleShowARGSequences, HtmlAttr.class "sequence"]
+                                        [Table.td [] [Html.p [HtmlAttr.class "sequence"]
                                             [Html.text <| (if model.showARGSequences then arg.seq else String.slice 0 30 arg.seq ++ "...")]]
                                         ,Table.td [] [Html.text <| arg.argName ++ " (" ++ arg.aro ++ ")"]
                                         ,Table.td [] [Html.text arg.cutOff]
