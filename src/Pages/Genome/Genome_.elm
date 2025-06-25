@@ -34,8 +34,21 @@ type alias MicrobeAtlasMatch =
     , otu : String
     }
 
+type alias ARG =
+    { seq : String
+    , argName : String
+    , aro : String
+    , cutOff : String
+    , matchID : Float
+    , fractionMatch : Float
+    , inResfinder : Bool
+    , drugClass : String
+    }
+
 type alias MAGData =
-    { microbeAtlas : List MicrobeAtlasMatch }
+    { microbeAtlas : List MicrobeAtlasMatch
+    , argData : List ARG
+    }
 
 type LoadedDataModel =
     Loaded MAGData
@@ -46,12 +59,14 @@ type alias Model =
     { magdata : LoadedDataModel
     , expanded : Bool
     , expanded16S : List Int
+    , showARGSequences : Bool
     }
 
 type Msg =
     ResultsData (Result Http.Error APIResult)
     | Toggle16SExpanded
     | Expand16S Int
+    | ToggleShowARGSequences
     | NoMsg
 
 type APIResult =
@@ -60,13 +75,26 @@ type APIResult =
 type alias MightMAG
     = Result String MAG
 
+decodeARG : D.Decoder ARG
+decodeARG =
+    D.map8 ARG
+        (D.field "Sequence" D.string)
+        (D.field "ArgName" D.string)
+        (D.field "ARO" D.string)
+        (D.field "Cut_Off" D.string)
+        (D.field "Identity" D.float)
+        (D.field "Coverage" D.float)
+        (D.field "InResfinder" D.bool)
+        (D.field "Drug Class" D.string)
+
 decodeMAGData : D.Decoder APIResult
 decodeMAGData =
-    D.map MAGData
+    D.map2 MAGData
         (D.field "16S" (D.list (D.map2 MicrobeAtlasMatch
             (D.field "Seq" D.string)
             (D.field "OTU" D.string)
         )))
+        (D.field "ARGs" (D.list decodeARG))
     |> D.map APIResultOK
 
 model0 : Model
@@ -74,6 +102,7 @@ model0 =
     { magdata = Waiting
     , expanded = False
     , expanded16S = []
+    , showARGSequences = False
     }
 
 cmd0 : String -> Effect Msg
@@ -133,6 +162,10 @@ update msg model =
                 ({ model | expanded16S = List.filter (\i -> i /= ix) model.expanded16S }, Effect.none)
             else
                 ({ model | expanded16S = ix :: model.expanded16S }, Effect.none)
+        ToggleShowARGSequences ->
+            ( { model | showARGSequences = not model.showARGSequences }
+            , Effect.none
+            )
 
         _ ->
             ( model
@@ -255,8 +288,18 @@ showMag model mag =
             , basicTR "#5s rRNA" (String.fromInt mag.r5sRrna)
             , basicTR "#tRNA" (String.fromInt mag.trna)
         ])
-        }
-    ]]]
+        }]]
+    , Grid.simpleRow [ Grid.col []
+        [ Html.h2 []
+           [ Html.text "Antibiotic resistance genes" ]
+           ,showARGs model mag
+           , Html.p []
+                [ Html.text "ARGs are predicted using RGI (Resistance Gene Identifier) based on the "
+                , Html.a [ HtmlAttr.href "https://card.mcmaster.ca/" ] [ Html.text "Comprehensive Antibiotic Resistance Database (CARD)" ]
+                , Html.text "."
+                ]
+        ]
+    ]]
 
 
 microbeAtlasBaseURL : String
@@ -271,10 +314,10 @@ showSingle16s model ix m =
                 ]
             [ if List.member ix model.expanded16S
                 then
-                    Html.p [HtmlAttr.class "r16Srna"]
+                    Html.p [HtmlAttr.class "sequence"]
                         [ Html.text m.seq]
                 else
-                    Html.p [HtmlAttr.class "r16Srna", HE.onClick (Expand16S ix)]
+                    Html.p [HtmlAttr.class "sequence", HE.onClick (Expand16S ix)]
                         [ Html.text <| String.slice 0 60 m.seq ++ "..." ]
             , Html.p []
                 [Html.text "Maps to microbe atlas OTU: "
@@ -287,9 +330,9 @@ show16S : Model -> MAG -> List (Table.Row Msg)
 show16S model mag =
     case model.magdata of
         Waiting ->
-            [basicTR "#16s rRNA" (String.fromInt mag.r16sRrna)]
+            [basicTR "waiting for data..." ""]
         LoadError e ->
-            [basicTR "#16s rRNA" (String.fromInt mag.r16sRrna)]
+            [basicTR "Data load error" e]
         Loaded magdata ->
             if model.expanded
                 then
@@ -314,3 +357,52 @@ show16S model mag =
                         [ Html.text <| String.fromInt mag.r16sRrna ++ " matches" ]
                     ]
                 ]
+
+showARGs : Model -> MAG -> Html.Html Msg
+showARGs model mag =
+    case model.magdata of
+        Waiting ->
+            Html.p [] [Html.text "Waiting for data..."]
+        LoadError e ->
+            Html.p [] [Html.text <| "Data load error: " ++ e]
+        Loaded magdata ->
+            if List.isEmpty magdata.argData then
+                Html.p [] [Html.text "No ARGs found for this genome."]
+            else
+                Table.table
+                    { options = [ Table.striped, Table.hover, Table.responsive ]
+                    , thead = Table.simpleThead
+                                        [ Table.th []
+                                            [ Html.text "Sequence"
+                                            , Html.span [HE.onClick ToggleShowARGSequences]
+                                                [ Html.text <| (if model.showARGSequences then " (collapse)" else " (expand)")
+                                                ]
+                                            ]
+                                        , Table.th []
+                                            [ Html.text "ARG Name" ]
+                                        , Table.th []
+                                            [ Html.text "Match category (RGI)" ]
+                                        , Table.th []
+                                            [ Html.text "Match ID (%)" ]
+                                        , Table.th []
+                                            [ Html.text "Fraction Match (%)" ]
+                                        , Table.th []
+                                            [ Html.text "Drug Class(es)" ]
+                                        , Table.th []
+                                            [ Html.text "In ResFinder?" ]
+                                        ]
+                , tbody = Table.tbody []
+                        (magdata.argData
+                            |> List.map (\arg ->
+                                    Table.tr []
+                                        [Table.td [] [Html.p [HE.onClick ToggleShowARGSequences, HtmlAttr.class "sequence"]
+                                            [Html.text <| (if model.showARGSequences then arg.seq else String.slice 0 30 arg.seq ++ "...")]]
+                                        ,Table.td [] [Html.text <| arg.argName ++ " (" ++ arg.aro ++ ")"]
+                                        ,Table.td [] [Html.text arg.cutOff]
+                                        ,Table.td [] [Html.text <| String.fromFloat arg.matchID]
+                                        ,Table.td [] [Html.text <| String.fromFloat arg.fractionMatch]
+                                        ,Table.td [] [Html.text arg.drugClass]
+                                        ,Table.td [] [Html.text (if arg.inResfinder then "✔" else "✘")]
+                                        ])
+                            )
+                }
