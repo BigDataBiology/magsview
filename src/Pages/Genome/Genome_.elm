@@ -184,14 +184,6 @@ showMag model mag =
         [ Html.text ("Genome: " ++ mag.id) ]
     , Html.h2 []
         [ Html.text "MAG Information" ]
-    , Html.div []
-        [ Html.text ("Status: " ++
-            case model.magdata of
-                Waiting -> "Loading..."
-                LoadError e -> "Error: " ++ e
-                Loaded _ -> "Loaded"
-            )
-        ]
     , Grid.simpleRow [ Grid.col [ ] [
         Table.table
             { options = [ Table.striped, Table.hover, Table.responsive ]
