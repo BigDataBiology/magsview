@@ -9,6 +9,9 @@ import Route exposing (Route)
 import Page exposing (Page)
 import View exposing (View)
 
+import Http
+import Json.Decode as D
+
 import W.InputCheckbox as InputCheckbox
 import Bootstrap.Button as Button
 import Bootstrap.Dropdown as Dropdown
@@ -26,19 +29,66 @@ import GenomeStats exposing (taxonomyLast, printableTaxonomy)
 
 -- INIT
 
+type alias MicrobeAtlasMatch =
+    { seq : String
+    , otu : String
+    }
+
+type alias MAGData =
+    { microbeAtlas : List MicrobeAtlasMatch }
+
+type LoadedDataModel =
+    Loaded MAGData
+    | LoadError String
+    | Waiting
+
 type alias Model =
-    ()
+    { magdata : LoadedDataModel
+    , expanded : Bool
+    , expanded16S : List Int
+    }
 
-type alias Msg = ()
+type Msg =
+    ResultsData (Result Http.Error APIResult)
+    | Toggle16SExpanded
+    | Expand16S Int
+    | NoMsg
 
+type APIResult =
+    APIError String | APIResultOK MAGData
 
 type alias MightMAG
     = Result String MAG
 
+decodeMAGData : D.Decoder APIResult
+decodeMAGData =
+    D.map MAGData
+        (D.field "16S" (D.list (D.map2 MicrobeAtlasMatch
+            (D.field "Seq" D.string)
+            (D.field "OTU" D.string)
+        )))
+    |> D.map APIResultOK
+
+model0 : Model
+model0 =
+    { magdata = Waiting
+    , expanded = False
+    , expanded16S = []
+    }
+
+cmd0 : String -> Effect Msg
+cmd0 magid =
+    Effect.sendCmd
+        (Http.get
+            { url = "/genome-data/"++ magid ++ ".json"
+            , expect = Http.expectJson ResultsData decodeMAGData
+            }
+        )
+
 page : Shared.Model -> Route { genome : String } -> Page Model Msg
 page shared route =
     Page.new
-        { init = \_ -> ((), Effect.none)
+        { init = \_ -> (model0, cmd0 route.params.genome)
         , update = update
         , subscriptions = \_ -> Sub.none
         , view = view shared route
@@ -61,9 +111,34 @@ update :
     -> Model
     -> (Model, Effect Msg)
 update msg model =
-        ( model
-        , Effect.none
-        )
+    case msg of
+        ResultsData r ->
+            let magdata = case r of
+                    Ok (APIResultOK v) -> Loaded v
+                    Ok (APIError e) -> LoadError e
+                    Err err -> case err of
+                        Http.BadUrl s -> LoadError ("Bad URL: "++ s)
+                        Http.Timeout  -> LoadError "Timeout"
+                        Http.NetworkError -> LoadError ("Network error!")
+                        Http.BadStatus s -> LoadError (("Bad status: " ++ String.fromInt s))
+                        Http.BadBody s -> LoadError (("Bad body: " ++ s))
+            in
+                ( { model | magdata = magdata }
+                , Effect.none
+                )
+        Toggle16SExpanded ->
+            ( { model | expanded = not model.expanded }, Effect.none )
+        Expand16S ix ->
+            if List.member ix model.expanded16S then
+                ({ model | expanded16S = List.filter (\i -> i /= ix) model.expanded16S }, Effect.none)
+            else
+                ({ model | expanded16S = ix :: model.expanded16S }, Effect.none)
+
+        _ ->
+            ( model
+            , Effect.none
+            )
+
 
 view :
     Shared.Model
@@ -78,7 +153,7 @@ view sm route model =
                     Err err ->
                         [ Html.text ("Error: "++err) ]
                     Ok mag ->
-                        showMag mag
+                        showMag model mag
                 )
             , Html.a [ HtmlAttr.href "/genomes" ]
                 [ Html.text "Back to genomes" ]
@@ -95,12 +170,28 @@ showWithCommas n =
     in
         addCommas (String.fromInt n)
 
-showMag : MAG -> List (Html.Html Msg)
-showMag mag =
+basicTR title value =
+    Table.tr []
+        [ Table.td []
+            [ Html.text title ]
+        , Table.td []
+            [ Html.text value ]
+        ]
+
+showMag : Model -> MAG -> List (Html.Html Msg)
+showMag model mag =
     [ Html.h1 []
         [ Html.text ("Genome: " ++ mag.id) ]
     , Html.h2 []
         [ Html.text "MAG Information" ]
+    , Html.div []
+        [ Html.text ("Status: " ++
+            case model.magdata of
+                Waiting -> "Loading..."
+                LoadError e -> "Error: " ++ e
+                Loaded _ -> "Loaded"
+            )
+        ]
     , Grid.simpleRow [ Grid.col [ ] [
         Table.table
             { options = [ Table.striped, Table.hover, Table.responsive ]
@@ -111,65 +202,113 @@ showMag mag =
                     [ Html.text "Value" ]
                 ]
         , tbody = Table.tbody []
-            (let
-                basicTR title value =
-                    Table.tr []
-                        [ Table.td []
-                            [ Html.text title ]
-                        , Table.td []
-                            [ Html.text value ]
-                        ]
-            in
-                [basicTR "Genome ID" mag.id
-                , Table.tr []
-                    [ Table.td []
-                        [Html.text "Taxonomy (GTDB)"]
-                    , Table.td []
-                        [Html.div
-                            [HtmlAttr.style "border-bottom" "2px solid black"]
-                            (let
-                                r : List String -> List (Html.Html Msg)
-                                r tax = case tax of
-                                    [] -> []
-                                    (x::xs) ->
-                                        [Html.div [HtmlAttr.style "padding-left" "1em"
-                                                , HtmlAttr.style "border-left" "2px solid black"
-                                                ]
-                                            ((Html.text x)::(r xs))
+            ([basicTR "Genome ID" mag.id
+            , Table.tr []
+                [ Table.td []
+                    [Html.text "Taxonomy (GTDB)"]
+                , Table.td []
+                    [Html.div
+                        [HtmlAttr.style "border-bottom" "2px solid black"]
+                        (let
+                            r : List String -> List (Html.Html Msg)
+                            r tax = case tax of
+                                [] -> []
+                                (x::xs) ->
+                                    [Html.div [HtmlAttr.style "padding-left" "1em"
+                                            , HtmlAttr.style "border-left" "2px solid black"
+                                            ]
+                                        ((Html.text x)::(r xs))
+                                    ]
+                        in r (String.split ";" mag.taxonomy)
+                        )
+                    ]
+                ]
+            , Table.tr []
+                [ Table.td []
+                    [Html.text "Is Representative"]
+                , Table.td []
+                    ((Html.text (if mag.isRepresentative then "Yes" else "No"))
+                    ::
+                        (let
+                            n = mags
+                                    |> List.filter (\m -> m.taxonomy == mag.taxonomy)
+                                    |> List.length
+                        in
+                            [if n == 1
+                                then Html.text <| " (only genome of "++printableTaxonomy mag.taxonomy++")"
+                                else Html.a [HtmlAttr.href ("/genomes?taxonomy="++ taxonomyLast mag.taxonomy)]
+                                        [Html.text <|
+                                                " (a total of " ++ String.fromInt n ++
+                                                    " genomes of "++ printableTaxonomy mag.taxonomy ++ " available, click to see all)"
                                         ]
-                            in r (String.split ";" mag.taxonomy)
+                            ]
+                    ))
+                ]
+            , basicTR "#Contigs" (String.fromInt mag.nrContigs)
+            , basicTR "Genome Size (bp)" (showWithCommas mag.genomeSize)
+            , basicTR "Completeness (%)" (String.fromFloat mag.completeness)
+            , basicTR "Contamination (%)" (String.fromFloat mag.contamination)
+            ] ++ show16S model mag ++ [
+              basicTR "#23s rRNA" (String.fromInt mag.r23sRrna)
+            , basicTR "#5s rRNA" (String.fromInt mag.r5sRrna)
+            , basicTR "#tRNA" (String.fromInt mag.trna)
+        ])
+        }
+    ]]]
+
+
+microbeAtlasBaseURL : String
+microbeAtlasBaseURL =
+    "https://microbeatlas.org/taxon?taxon_id="
+
+showSingle16s : Model -> Int -> MicrobeAtlasMatch -> Html.Html Msg
+showSingle16s model ix m =
+    Html.div [ HtmlAttr.style "padding-left" "1em"
+                , HtmlAttr.style "margin-bottom" "1em"
+                , HtmlAttr.style "border-left" "2px solid black"
+                ]
+            [ if List.member ix model.expanded16S
+                then
+                    Html.p [HtmlAttr.class "r16Srna"]
+                        [ Html.text m.seq]
+                else
+                    Html.p [HtmlAttr.class "r16Srna", HE.onClick (Expand16S ix)]
+                        [ Html.text <| String.slice 0 60 m.seq ++ "..." ]
+            , Html.p []
+                [Html.text "Maps to microbe atlas OTU: "
+                , Html.a [ HtmlAttr.href (microbeAtlasBaseURL ++ m.otu), HtmlAttr.class "microbeAtlasLink" ]
+                    [ Html.text m.otu ]
+                ]
+            ]
+
+show16S : Model -> MAG -> List (Table.Row Msg)
+show16S model mag =
+    case model.magdata of
+        Waiting ->
+            [basicTR "#16s rRNA" (String.fromInt mag.r16sRrna)]
+        LoadError e ->
+            [basicTR "#16s rRNA" (String.fromInt mag.r16sRrna)]
+        Loaded magdata ->
+            if model.expanded
+                then
+                [ Table.tr []
+                    [ Table.td []
+                        [ Html.text "16s rRNA matches" ]
+                    , Table.td []
+                        [ Html.div []
+                            (magdata.microbeAtlas
+                                |> List.indexedMap (showSingle16s model)
                             )
                         ]
                     ]
-                , Table.tr []
-                    [ Table.td []
-                        [Html.text "Is Representative"]
+                ]
+                else
+                [ Table.tr [ ]
+                    [ Table.td [ ]
+                        [ Html.span [HE.onClick Toggle16SExpanded ]
+                            [ Html.text "#16s rRNA (click to see details & matches)" ]
+                        ]
                     , Table.td []
-                        ((Html.text (if mag.isRepresentative then "Yes" else "No"))
-                        ::
-                            (let
-                                n = mags
-                                        |> List.filter (\m -> m.taxonomy == mag.taxonomy)
-                                        |> List.length
-                            in
-                                [if n == 1
-                                    then Html.text <| " (only genome of "++printableTaxonomy mag.taxonomy++")"
-                                    else Html.a [HtmlAttr.href ("/genomes?taxonomy="++ taxonomyLast mag.taxonomy)]
-                                            [Html.text <|
-                                                    " (a total of " ++ String.fromInt n ++
-                                                        " genomes of "++ printableTaxonomy mag.taxonomy ++ " available, click to see all)"
-                                            ]
-                                ]
-                        ))
+                        [ Html.text <| String.fromInt mag.r16sRrna ++ " matches" ]
                     ]
-                , basicTR "#Contigs" (String.fromInt mag.nrContigs)
-                , basicTR "Genome Size (bp)" (showWithCommas mag.genomeSize)
-                , basicTR "Completeness (%)" (String.fromFloat mag.completeness)
-                , basicTR "Contamination (%)" (String.fromFloat mag.contamination)
-                , basicTR "#16s rRNA" (String.fromInt mag.r16sRrna)
-                , basicTR "#23s rRNA" (String.fromInt mag.r23sRrna)
-                , basicTR "#5s rRNA" (String.fromInt mag.r5sRrna)
-                , basicTR "#tRNA" (String.fromInt mag.trna)
-            ])
-        }
-    ]]]
+                ]
