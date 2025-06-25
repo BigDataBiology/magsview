@@ -3,7 +3,8 @@ module GenomeStats exposing (chartNrContigs,
                             chartQualityScatter,
                             Quality, magQuality, qualityString,
                             taxonomyLast,
-                            printableTaxonomy)
+                            printableTaxonomy,
+                            splitTaxon)
 
 
 import Html
@@ -162,3 +163,25 @@ taxonomyLast t =
 
 printableTaxonomy =
     taxonomyLast >> String.dropLeft 3
+
+splitTaxon : String -> (String, String)
+splitTaxon name =
+    let
+        tlevel = case String.split "__" name of
+            [] -> "root"
+            (x::_) -> case x of
+                "r" -> "root"
+                "d" -> "domain"
+                "k" -> "kingdom"
+                "p" -> "phylum"
+                "c" -> "class"
+                "o" -> "order"
+                "f" -> "family"
+                "g" -> "genus"
+                "s" -> "species"
+                _ -> "unknown"
+        sname = case String.split "__" name of
+            [_, x] -> String.replace "_" " " x
+            _ -> ""
+    in
+        (tlevel, sname)

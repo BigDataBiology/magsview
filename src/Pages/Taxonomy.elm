@@ -26,6 +26,7 @@ import Bootstrap.Table as Table
 import DataModel exposing (MAG)
 import Data exposing (mags)
 import Layouts
+import GenomeStats exposing (splitTaxon)
 
 
 type TreeNode =
@@ -194,28 +195,13 @@ showTree path showDownloadModal treeNode =
     let
         name : String
         name = nameOf treeNode
-        tlevel = case String.split "__" name of
-            [] -> "root"
-            (x::_) -> case x of
-                "r" -> "root"
-                "d" -> "domain"
-                "k" -> "kingdom"
-                "p" -> "phylum"
-                "c" -> "class"
-                "o" -> "order"
-                "f" -> "family"
-                "g" -> "genus"
-                "s" -> "species"
-                _ -> "unknown"
+        (tlevel, sname) = splitTaxon name
         pathStr : String
         pathStr =
             (name::path)
                 |> List.reverse
                 |> List.filter (\x -> not (String.startsWith "r__" x))
                 |> String.join ";"
-        sname = case String.split "__" name of
-            [_, x] -> String.replace "_" " " x
-            _ -> ""
         card =
             let isC = case treeNode of
                     CollapsedNode _ _ -> True

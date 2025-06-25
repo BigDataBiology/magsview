@@ -25,7 +25,7 @@ import Shared
 import Data exposing (mags)
 import DataModel exposing (MAG)
 import Layouts
-import GenomeStats exposing (taxonomyLast, printableTaxonomy)
+import GenomeStats exposing (taxonomyLast, printableTaxonomy, splitTaxon)
 
 -- INIT
 
@@ -178,6 +178,16 @@ basicTR title value =
             [ Html.text value ]
         ]
 
+showTaxon : String -> Html.Html Msg
+showTaxon name =
+    let
+        (tlevel, sname) = splitTaxon name
+    in
+        Html.span []
+            [Html.text sname
+            , Html.span [HtmlAttr.class "taxonomy-class"]
+                [Html.text (" ("++tlevel++")")]]
+
 showMag : Model -> MAG -> List (Html.Html Msg)
 showMag model mag =
     [ Html.h1 []
@@ -209,7 +219,7 @@ showMag model mag =
                                     [Html.div [HtmlAttr.style "padding-left" "1em"
                                             , HtmlAttr.style "border-left" "2px solid black"
                                             ]
-                                        ((Html.text x)::(r xs))
+                                        ((showTaxon x)::(r xs))
                                     ]
                         in r (String.split ";" mag.taxonomy)
                         )
