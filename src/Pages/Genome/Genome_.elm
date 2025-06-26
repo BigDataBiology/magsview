@@ -397,7 +397,9 @@ showARGs model mag =
                                     Table.tr []
                                         [Table.td [] [Html.p [HtmlAttr.class "sequence"]
                                             [Html.text <| (if model.showARGSequences then arg.seq else String.slice 0 30 arg.seq ++ "...")]]
-                                        ,Table.td [] [Html.text <| arg.argName ++ " (" ++ arg.aro ++ ")"]
+                                        ,Table.td [] [Html.text <| arg.argName ++ " "
+                                                     ,Html.a [HtmlAttr.href <| "https://card.mcmaster.ca/" ++ arg.aro]
+                                                        [Html.text <| "(" ++ arg.aro ++ ")"]]
                                         ,Table.td [] [Html.text arg.cutOff]
                                         ,Table.td [] [Html.text <| String.fromFloat arg.matchID]
                                         ,Table.td [] [Html.text <| String.fromFloat arg.fractionMatch]
