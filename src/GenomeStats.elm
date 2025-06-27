@@ -64,11 +64,12 @@ chartNrContigs sel =
 
     in
         C.chart
-        [
+        [ CA.width 210
+        , CA.height 210
         ]
         [ C.yLabels [ CA.withGrid ]
-        , C.binLabels .label [ CA.moveDown 14, CA.fontSize 14 ]
-        , C.labelAt .min CA.middle [ CA.moveLeft 35, CA.rotate 90 ]
+        , C.binLabels .label [ CA.moveDown 14, CA.fontSize 10 ]
+        , C.labelAt .min CA.middle [ CA.moveLeft 42, CA.rotate 90 ]
               [ S.text "Number of MAGs" ]
         , C.labelAt CA.middle .min [ CA.moveDown 30 ]
               [ S.text "Number of contigs in genome" ]
@@ -86,12 +87,14 @@ chartQualitySummary sel =
         medium = List.filter ((==) "Medium") qs |> List.length |> toFloat
     in
         C.chart
-        [ ]
+        [ CA.width 100
+        , CA.height 210
+        ]
         [ C.yLabels [ CA.withGrid ]
         , C.binLabels .label [ CA.moveDown 20 ]
-        , C.labelAt .min CA.middle [ CA.moveLeft 35, CA.rotate 90 ]
+        , C.labelAt .min CA.middle [ CA.moveLeft 48, CA.rotate 90 ]
               [ S.text "Number of MAGs" ]
-        , C.labelAt CA.middle .min [ CA.moveDown 30 ]
+        , C.labelAt CA.middle .min [ CA.moveDown 40 ]
               [ S.text "Quality" ]
 
         , C.bars []
@@ -104,7 +107,10 @@ chartQualitySummary sel =
 
 chartQualityScatter onHover hovering sel =
   C.chart
-    [ CE.onMouseMove onHover (CE.getNearest CI.dots)
+    [ CA.width 210
+    , CA.height 210
+
+    , CE.onMouseMove onHover (CE.getNearest CI.dots)
     , CE.onMouseLeave (onHover [])
     ]
     [ C.xLabels [ CA.withGrid ]

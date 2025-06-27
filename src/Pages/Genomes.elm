@@ -327,22 +327,23 @@ view model =
 viewCharts model sel =
     [ Grid.col []
         [ Html.div
-            [HtmlAttr.style "width" "180px"
-            ,HtmlAttr.style "height" "180px"
+            [HtmlAttr.style "width" "100px"
+            ,HtmlAttr.style "height" "210px"
+            ,HtmlAttr.style "margin-left" "28px"
             ]
             [GenomeStats.chartQualitySummary sel]
         ]
     , Grid.col []
         [ Html.div
-            [HtmlAttr.style "width" "180px"
-            ,HtmlAttr.style "height" "180px"
+            [HtmlAttr.style "width" "210px"
+            ,HtmlAttr.style "height" "210px"
             ]
             [GenomeStats.chartQualityScatter OnHover model.hovering sel]
         ]
     , Grid.col []
         [ Html.div
-            [HtmlAttr.style "width" "180px"
-            ,HtmlAttr.style "height" "180px"
+            [HtmlAttr.style "width" "210px"
+            ,HtmlAttr.style "height" "210px"
             ]
             [GenomeStats.chartNrContigs sel]
         ]
