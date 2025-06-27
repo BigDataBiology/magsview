@@ -49,7 +49,58 @@ contentOther : String
 contentOther = """
 ## Shanghai dog gut microbiome
 
-Other
+We are currently (late _June 2025_) preparing a manuscript describing the resource and the results of our analyses and we are working on making the data available.
+
+Please contact us if you are interested in the data: [anna@big-data-biology.org](mailto:anna@big-data-biology.org) or [luispedro@big-data-biology.org](mailto:luispedro@big-data-biology.rorg).
+
+### MAG catalogue
+
+The MAG catalogue includes:
+
+1. The MAGs themselves, in FASTA format.
+2. Eggog-mapper annotations for the MAGs.
+3. RGI annotations for the MAGs (AntiMicrobial Resistance Genes).
+4. A table with the MAGs, their size, completeness, contamination, and other statistics.
+
+
+### Extra-chromosomal elements
+
+We provide a catalogue of extra-chromosomal elements, including plasmids.
+
+1. The plasmids themselves, in FASTA format.
+2. Eggog-mapper annotations for the plasmids.
+
+
+### Gene catalogue
+
+The gene catalogue includes three levels of redudancy removal:
+
+1. The initial set of open reading frames (ORFs) predicted by Prodigal.
+2. The set of ORFs after clustering at 100% nucleotide identity.
+3. The set of ORFs after clustering at 95% nucleotide identity (unigenes).
+
+As a resource for download, we provide:
+
+1. The genes themselves, in FASTA format; including both nucleotides and amino acids versions.
+2. Eggog-mapper annotations for the genes.
+3. The clustering table
+
+### Small protein catalogue
+
+Unlike the gene catalogue, which is completely _denovo_, the small protein
+catalogue is based on mapping to the [Global Microbial Smorf
+Catalogue](https://doi.org/10.1038/s41467-024-51894-6).
+
+As a resource for download, we provide:
+
+1. The small proteins themselves, in FASTA format, both 100% and 90% amino acid identity.
+2. Clustering tables for the small proteins, at 100% and 90% amino acid identity.
+
+### Other tables
+
+Other tables, including contextual data tables, will be available as
+Supplementary Tables in the manuscript.
+
 """
 
 contentManuscript : String
