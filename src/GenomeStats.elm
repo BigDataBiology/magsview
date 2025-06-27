@@ -82,9 +82,13 @@ chartNrContigs sel =
 
 chartQualitySummary sel =
     let
-        qs = sel |> List.map (magQuality >> qualityString)
-        high = List.filter ((==) "High") qs |> List.length |> toFloat
-        medium = List.filter ((==) "Medium") qs |> List.length |> toFloat
+        high = List.filter (\m -> magQuality m == High) sel
+        medium = List.filter (\m -> magQuality m == Medium) sel
+
+        high_r = high |> List.filter .isRepresentative |> List.length |> toFloat
+        high_n = high |> List.filter (.isRepresentative >> not) |> List.length |> toFloat
+        medium_r = medium |> List.filter .isRepresentative |> List.length |> toFloat
+        medium_n = medium |> List.filter (.isRepresentative >> not) |> List.length |> toFloat
     in
         C.chart
         [ CA.width 100
@@ -92,17 +96,20 @@ chartQualitySummary sel =
         ]
         [ C.yLabels [ CA.withGrid ]
         , C.binLabels .label [ CA.moveDown 20 ]
-        , C.labelAt .min CA.middle [ CA.moveLeft 48, CA.rotate 90 ]
+        , C.labelAt .min CA.middle [ CA.moveLeft 56, CA.rotate 90 ]
               [ S.text "Number of MAGs" ]
         , C.labelAt CA.middle .min [ CA.moveDown 40 ]
               [ S.text "Quality" ]
 
         , C.bars []
-            [ C.bar .c []
+            [ C.stacked
+                [ C.bar .cn [CA.color "orange"]
+                , C.bar .cr [CA.color "green"]
+                ]
             ]
-            [ { c = high, label = "High"}
-            , { c = medium, label = "Medium"}
-            ]
+                [ { cr = high_r, cn = high_n, label = "High"}
+                , { cr = medium_r, cn = medium_n, label = "Medium"}
+                ]
         ]
 
 chartQualityScatter onHover hovering sel =
@@ -122,12 +129,14 @@ chartQualityScatter onHover hovering sel =
           [ S.text "Completeness" ]
      , C.legendsAt .min .max
               [ CA.column
-              , CA.spacing 5
+              , CA.spacing 2
               , CA.background "#cccccc33"
               , CA.border "gray"
               , CA.borderWidth 1
+              , CA.moveUp 40
+              , CA.moveLeft 80
               , CA.htmlAttrs
-                  [ HtmlAttr.style "padding" "5px"
+                  [ HtmlAttr.style "padding" "2px"
                   , HtmlAttr.style "border-radius" "12px"
                   ]
               ]

@@ -329,7 +329,7 @@ viewCharts model sel =
         [ Html.div
             [HtmlAttr.style "width" "100px"
             ,HtmlAttr.style "height" "210px"
-            ,HtmlAttr.style "margin-left" "28px"
+            ,HtmlAttr.style "margin-left" "50px"
             ]
             [GenomeStats.chartQualitySummary sel]
         ]
