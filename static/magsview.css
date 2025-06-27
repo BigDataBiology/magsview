@@ -2,6 +2,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
     sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
 }
+
 div#footer {
     position: fixed;
     bottom: 0;
@@ -12,6 +13,11 @@ div#footer {
     color: #666;
     text-align: center;
 }
+/* This is needed to prevent the footer from overlapping content */
+main {
+  padding-bottom: 2em;
+}
+
 
 div.tree-node {
   margin-left: 8px;
