@@ -68,7 +68,7 @@ chartNrContigs sel =
         ]
         [ C.yLabels [ CA.withGrid ]
         , C.binLabels .label [ CA.moveDown 14, CA.fontSize 14 ]
-        , C.labelAt .min CA.middle [ CA.moveLeft 65, CA.rotate 90 ]
+        , C.labelAt .min CA.middle [ CA.moveLeft 35, CA.rotate 90 ]
               [ S.text "Number of MAGs" ]
         , C.labelAt CA.middle .min [ CA.moveDown 30 ]
               [ S.text "Number of contigs in genome" ]
@@ -89,7 +89,7 @@ chartQualitySummary sel =
         [ ]
         [ C.yLabels [ CA.withGrid ]
         , C.binLabels .label [ CA.moveDown 20 ]
-        , C.labelAt .min CA.middle [ CA.moveLeft 65, CA.rotate 90 ]
+        , C.labelAt .min CA.middle [ CA.moveLeft 35, CA.rotate 90 ]
               [ S.text "Number of MAGs" ]
         , C.labelAt CA.middle .min [ CA.moveDown 30 ]
               [ S.text "Quality" ]
@@ -114,7 +114,18 @@ chartQualityScatter onHover hovering sel =
           [ S.text "Contamination" ]
     , C.labelAt CA.middle .min [ CA.moveDown 30 ]
           [ S.text "Completeness" ]
-
+     , C.legendsAt .min .max
+              [ CA.column
+              , CA.spacing 5
+              , CA.background "#cccccc33"
+              , CA.border "gray"
+              , CA.borderWidth 1
+              , CA.htmlAttrs
+                  [ HtmlAttr.style "padding" "5px"
+                  , HtmlAttr.style "border-radius" "12px"
+                  ]
+              ]
+              []
     , C.each hovering <| \p item ->
         [ C.tooltip item [] []
             [
@@ -131,27 +142,21 @@ chartQualityScatter onHover hovering sel =
             ]
         ]
 
+    -- draw the non-representative genomes first
+    -- so that the representative genomes are on top
     , C.series .completeness
-        [C.scatter .contamination []
+        [C.scatter .contamination
+            [CA.color "orange"]
               |> C.amongst hovering (\datum -> [ CA.highlight 0.5 ])
-              |> C.variation
-                    (\ix mag ->
-                        [CA.color
-                            (if mag.isRepresentative then
-                                "green"
-                            else
-                                "orange")
-                        ]
-                    )
+              |> C.named "Non-representative"
+        ] (sel |> List.filter (.isRepresentative >> not))
 
-        ]
-        -- draw the non-representative genomes first
-        -- so that the representative genomes are on top
-        (
-            (sel |> List.filter (.isRepresentative >> not))
-            ++
-            (sel |> List.filter .isRepresentative)
-        )
+    , C.series .completeness
+        [C.scatter .contamination [CA.color "green"]
+              |> C.amongst hovering (\datum -> [ CA.highlight 0.5 ])
+              |> C.named "Representative"
+
+        ] (sel |> List.filter .isRepresentative)
     ]
 
 taxonomyLast t =
