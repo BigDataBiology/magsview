@@ -256,26 +256,35 @@ showMag model mag =
                 in r (String.split ";" mag.taxonomy)
                 )
             , Html.span []
-                (if mag.isRepresentative
-                    then
-                        [Html.span []
-                            [ Html.text "This genome is the representative genome for "
+                (let
+                    n = mags
+                            |> List.filter (\m -> m.taxonomy == mag.taxonomy)
+                            |> List.length
+                in
+                    if mag.isRepresentative
+                        then
+                            [Html.span []
+                                [ Html.text "This genome is the representative"
+                                , if n == 1
+                                    then Html.text " (and only) "
+                                    else Html.text " "
+                                , Html.text "genome for "
+                                , Html.em []
+                                    [ Html.text (printableTaxonomy mag.taxonomy)
+                                    ]
+                                , Html.text " in our dataset."
+                                , mkTooltipQuestionMark ("The representative genome is the best genome in our data.")
+                                ]
+                            ]
+                        else
+                            [Html.text "This is ", Html.strong [] [Html.text "not"], Html.text " the representative genome for "
                             , Html.em []
                                 [ Html.text (printableTaxonomy mag.taxonomy)
                                 ]
                             , Html.text " in our dataset."
-                            , mkTooltipQuestionMark ("The representative genome is the best genome in our data.")
+                            ,mkTooltipQuestionMark ("The representative genome is the best genome in our data and this is not it.")
                             ]
-                        ]
-                    else
-                        [Html.text "This is not the representative genome for "
-                        , Html.em []
-                            [ Html.text (printableTaxonomy mag.taxonomy)
-                            ]
-                        , Html.text " in our dataset."
-                        ,mkTooltipQuestionMark ("The representative genome is the best genome in our data and this is not it.")
-                        ]
-                )
+                    )
             , Html.p []
                 (let
                     n = mags
@@ -283,7 +292,7 @@ showMag model mag =
                             |> List.length
                 in
                     [if n == 1
-                        then Html.text <| "(This is the only genome for "++printableTaxonomy mag.taxonomy++")"
+                        then Html.text ""
                         else Html.a [HtmlAttr.href ("/genomes?taxnav=1&taxonomy="++mag.taxonomy)]
                                 [Html.text <|
                                         "A total of " ++ String.fromInt n ++
