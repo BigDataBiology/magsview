@@ -5,6 +5,8 @@ import Html
 import Html.Attributes as HtmlAttr
 import Html.Events as HE
 
+import File.Download as Download
+
 import Route exposing (Route)
 import Page exposing (Page)
 import View exposing (View)
@@ -62,6 +64,7 @@ type alias Model =
 
 type Msg =
     SetSortOrder SortOrder
+    | DownloadTSV
     | SetRepsOnly Bool
     | UpdateTaxonomyFilter String
     | UpdateMaxNrContigs Float
@@ -135,26 +138,33 @@ update :
     -> Model
     -> (Model, Effect Msg)
 update msg model =
-    let
-        nmodel = case msg of
-            SetSortOrder order ->
-                { model | sortOrder = order }
-            SetRepsOnly ro ->
-                { model | repsOnly = ro }
-            UpdateTaxonomyFilter filter ->
-                { model | taxonomyFilter = filter
-                        , taxonomyUpActive = upOneLevel filter /= filter
-                        }
-            UpdateMaxNrContigs step ->
-                { model | maxNrContigsStep = step }
-            ToggleShowFullTaxonomy ->
-                { model | showFullTaxonomy = not model.showFullTaxonomy }
-            OnHover hovering ->
-              { model | hovering = hovering }
-    in
-        ( nmodel
-        , Effect.none
-        )
+    case msg of
+        SetSortOrder order ->
+            ({ model | sortOrder = order }
+            , Effect.none)
+        SetRepsOnly ro ->
+            ({ model | repsOnly = ro }
+            , Effect.none)
+        UpdateTaxonomyFilter filter ->
+            ({ model | taxonomyFilter = filter
+                    , taxonomyUpActive = upOneLevel filter /= filter
+                    }
+            , Effect.none)
+        UpdateMaxNrContigs step ->
+            ({ model | maxNrContigsStep = step }
+            , Effect.none)
+        ToggleShowFullTaxonomy ->
+            ({ model | showFullTaxonomy = not model.showFullTaxonomy }
+            , Effect.none)
+        DownloadTSV ->
+            let
+                tsv = mkTSV model
+            in
+                ( model
+                , Effect.sendCmd <| Download.string "SHD1_selected_genomes.tsv" "text/tab-separated-values" tsv
+                )
+        OnHover hovering ->
+            ({ model | hovering = hovering }, Effect.none)
 
 
 last : List a -> Maybe a
@@ -176,12 +186,84 @@ upOneLevel taxonomy =
             else
                 taxonomy
 
-view :
-    Model
-    -> View Msg
-view model =
+mkTSV : Model -> String
+mkTSV model =
     let
         sel = mags
+            |> List.sortBy (\t ->
+                case model.sortOrder of
+                    ById ->
+                        (t.id, 0.0)
+                    ByTaxonomy ->
+                        (t.taxonomy, 0.0)
+                    ByCompleteness ->
+                        ("", -t.completeness)
+                    ByContamination ->
+                        ("", t.contamination)
+                    ByNrContigs ->
+                        ("", toFloat t.nrContigs)
+                    ByGenomeSize ->
+                        ("", toFloat <| -t.genomeSize)
+            )
+            |> (if model.repsOnly
+                    then List.filter .isRepresentative
+                    else identity)
+            |> (if String.isEmpty model.taxonomyFilter
+                    then identity
+                    else List.filter (\t ->
+                            String.contains
+                                (String.toLower model.taxonomyFilter)
+                                (String.toLower t.taxonomy))
+                )
+            |> (if step2maxContigs model.maxNrContigsStep > 0
+                    then List.filter (\t -> t.nrContigs <= step2maxContigs model.maxNrContigsStep)
+                    else identity)
+
+        header =
+            [ "MAG ID"
+            , "Completeness"
+            , "Contamination"
+            , "# Contigs"
+            , "Genome size (bp)"
+            , "# r16s rRNA"
+            , "# r5s rRNA"
+            , "# r23s rRNA"
+            , "# tRNA"
+            , "Is representative"
+            , "Taxonomy (GTDB)"
+            ]
+
+        rows =
+            sel
+                |> List.map (\t ->
+                    [ t.id
+                    , String.fromFloat t.completeness
+                    , String.fromFloat t.contamination
+                    , String.fromInt t.nrContigs
+                    , String.fromFloat <| toFloat t.genomeSize
+                    , String.fromInt t.r16sRrna
+                    , String.fromInt t.r5sRrna
+                    , String.fromInt t.r23sRrna
+                    , String.fromInt t.trna
+                    , if t.isRepresentative then "yes" else "no"
+                    , t.taxonomy
+                    ]
+                )
+    in
+        String.concat
+            [ String.join "\t" header
+            , "\n"
+            , List.map (String.join "\t") rows
+                |> String.join "\n"
+            ]
+
+filteredMags : Model -> List MAG
+filteredMags model =
+    let
+        maxNrContigs =
+            step2maxContigs model.maxNrContigsStep
+    in
+        mags
             |> List.sortBy (\t ->
                 -- sortBy can receive any comparable value, but it must have a consistent
                 -- type, so we use a tuple to sort by either a string or a float
@@ -214,6 +296,12 @@ view model =
                     then List.filter (\t -> t.nrContigs <= maxNrContigs)
                     else identity)
 
+view :
+    Model
+    -> View Msg
+view model =
+    let
+        sel = filteredMags model
         maxNrContigs =
             step2maxContigs model.maxNrContigsStep
         theader sortO h =
@@ -292,35 +380,41 @@ view model =
                         ]
                     ]
                 )::(viewCharts model sel))
-            , Grid.simpleRow [ Grid.col [ ] [Table.table
-                { options = [ Table.striped, Table.hover, Table.responsive ]
-                , thead =  Table.simpleThead
-                    [ theader ById "MAG ID"
-                    , theader ByCompleteness "Completeness"
-                    , theader ByContamination "Contamination"
-                    , theader ByNrContigs "#Contigs"
-                    , theader ByGenomeSize "Genome size (Mbp)"
-                    , taxonomyHeader
+            , Grid.simpleRow [ Grid.col [ ]
+                [Button.button
+                    [ Button.primary
+                    , Button.onClick DownloadTSV
                     ]
-                , tbody =
-                    sel
-                        |> List.map (\t ->
-                            Table.tr []
-                                [ Table.td [] [ Html.a
-                                                    [ HtmlAttr.href ("/genome/"++ t.id)
-                                                    , HtmlAttr.style "font-weight"
-                                                        (if t.isRepresentative then "bold" else "normal")
+                    [ Html.text "Download table as TSV" ]
+                , Table.table
+                    { options = [ Table.striped, Table.hover, Table.responsive ]
+                    , thead =  Table.simpleThead
+                        [ theader ById "MAG ID"
+                        , theader ByCompleteness "Completeness"
+                        , theader ByContamination "Contamination"
+                        , theader ByNrContigs "#Contigs"
+                        , theader ByGenomeSize "Genome size (Mbp)"
+                        , taxonomyHeader
+                        ]
+                    , tbody =
+                        sel
+                            |> List.map (\t ->
+                                Table.tr []
+                                    [ Table.td [] [ Html.a
+                                                        [ HtmlAttr.href ("/genome/"++ t.id)
+                                                        , HtmlAttr.style "font-weight"
+                                                            (if t.isRepresentative then "bold" else "normal")
+                                                        ]
+                                                        [ Html.text t.id ]
                                                     ]
-                                                    [ Html.text t.id ]
-                                                ]
-                                , Table.td [] [ Html.text (t.completeness |> String.fromFloat) ]
-                                , Table.td [] [ Html.text (t.contamination |> String.fromFloat) ]
-                                , Table.td [] [ Html.text (t.nrContigs |> String.fromInt) ]
-                                , Table.td [] [ Html.text (t.genomeSize |> (\s -> toFloat (s // 1000// 10) /100.0) |> String.fromFloat) ]
-                                , Table.td [] [ maybeSimplifyTaxonomy t.taxonomy ]
-                                ])
-                        |> Table.tbody []
-                }
+                                    , Table.td [] [ Html.text (t.completeness |> String.fromFloat) ]
+                                    , Table.td [] [ Html.text (t.contamination |> String.fromFloat) ]
+                                    , Table.td [] [ Html.text (t.nrContigs |> String.fromInt) ]
+                                    , Table.td [] [ Html.text (t.genomeSize |> (\s -> toFloat (s // 1000// 10) /100.0) |> String.fromFloat) ]
+                                    , Table.td [] [ maybeSimplifyTaxonomy t.taxonomy ]
+                                    ])
+                            |> Table.tbody []
+                    }
             ]]]
         }
 
