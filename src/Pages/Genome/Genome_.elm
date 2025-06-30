@@ -1,4 +1,3 @@
-
 module Pages.Genome.Genome_ exposing (Model, Msg, page)
 
 import Html
@@ -27,6 +26,7 @@ import Data exposing (mags)
 import DataModel exposing (MAG)
 import Layouts
 import GenomeStats exposing (taxonomyLast, printableTaxonomy, showTaxon)
+import Utils exposing (mkTooltipQuestionMark)
 
 -- INIT
 
@@ -251,11 +251,20 @@ showMag model mag =
                 ]
             , Table.tr []
                 [ Table.td []
-                    [Html.text "Is Representative"]
+                    [Html.text "Is Representative" ]
                 , Table.td []
-                    ((Html.text (if mag.isRepresentative then "Yes" else "No"))
-                    ::
-                        (let
+                    ((if mag.isRepresentative
+                        then
+                            [Html.text "Yes"
+                            ,mkTooltipQuestionMark ("This genome is the representative genome for its species in our dataset (the best quality genome available)."
+                            )
+                            ]
+                        else
+                            [Html.text "No"
+                            ,mkTooltipQuestionMark ("This genome is not the representative genome for its species in our dataset (there are better quality genomes available)."
+                            )
+                            ]
+                    ) ++ (let
                             n = mags
                                     |> List.filter (\m -> m.taxonomy == mag.taxonomy)
                                     |> List.length
@@ -380,7 +389,10 @@ showARGs model mag =
                                         , Table.th []
                                             [ Html.text "Drug Class(es)" ]
                                         , Table.th []
-                                            [ Html.text "In ResFinder?" ]
+                                            [ Html.text "In ResFinder?"
+                                            , mkTooltipQuestionMark
+                                                ("The ResFinder database focuses on clinically relevant ARGs.")
+                                            ]
                                         ]
                 , tbody = Table.tbody []
                         (magdata.argData
