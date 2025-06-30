@@ -268,9 +268,12 @@ showMag model mag =
                             ]
                         ]
                     else
-                        [Html.text "No"
-                        ,mkTooltipQuestionMark ("This genome is not the representative genome for its species in our dataset (there are better quality genomes available)."
-                        )
+                        [Html.text "This is not the representative genome for "
+                        , Html.em []
+                            [ Html.text (printableTaxonomy mag.taxonomy)
+                            ]
+                        , Html.text " in our dataset."
+                        ,mkTooltipQuestionMark ("The representative genome is the best genome in our data and this is not it.")
                         ]
                 )
             , Html.p []
@@ -281,7 +284,7 @@ showMag model mag =
                 in
                     [if n == 1
                         then Html.text <| "(This is the only genome for "++printableTaxonomy mag.taxonomy++")"
-                        else Html.a [HtmlAttr.href ("/genomes?taxonomy="++ taxonomyLast mag.taxonomy)]
+                        else Html.a [HtmlAttr.href ("/genomes?taxnav=1&taxonomy="++mag.taxonomy)]
                                 [Html.text <|
                                         "A total of " ++ String.fromInt n ++
                                             " genomes of "++ printableTaxonomy mag.taxonomy ++ " are available (click to see all)"
@@ -319,6 +322,7 @@ showSingle16s model ix m =
                         [ Html.text <| String.slice 0 60 m.seq ++ "..." ]
             , Html.p []
                 [Html.text "Maps to microbe atlas OTU: "
+                , mkTooltipQuestionMark ("Microbe Atlas is a database of 16S amplicon sequences and where they are found in the environment.")
                 , Html.a [ HtmlAttr.href (microbeAtlasBaseURL ++ m.otu), HtmlAttr.class "microbeAtlasLink" ]
                     [ Html.text m.otu ]
                 ]
