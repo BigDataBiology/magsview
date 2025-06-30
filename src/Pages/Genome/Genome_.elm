@@ -260,6 +260,10 @@ showMag model mag =
                     n = mags
                             |> List.filter (\m -> m.taxonomy == mag.taxonomy)
                             |> List.length
+                    rep = mags
+                            |> List.filter (\m -> m.taxonomy == mag.taxonomy && m.isRepresentative)
+                            |> List.head -- should be at most one
+                            |> Maybe.withDefault mag -- if no representative, use this one (but should never happen)
                 in
                     if mag.isRepresentative
                         then
@@ -282,7 +286,15 @@ showMag model mag =
                                 [ Html.text (printableTaxonomy mag.taxonomy)
                                 ]
                             , Html.text " in our dataset."
-                            ,mkTooltipQuestionMark ("The representative genome is the best genome in our data and this is not it.")
+                            , Html.text " The representative genome is "
+                                , Html.a [HtmlAttr.href ("/genome/" ++ rep.id)]
+                                    [ Html.text rep.id ]
+                                , Html.text " with "
+                                , Html.em [] [Html.text (String.fromFloat rep.completeness ++ "% completeness")]
+                                , Html.text " and "
+                                , Html.em [] [Html.text (String.fromFloat rep.contamination ++ "% contamination")]
+                                , Html.text "."
+                            ,mkTooltipQuestionMark ("The representative genome is the best genome in our data in terms of QC stats.")
                             ]
                     )
             , Html.p []
