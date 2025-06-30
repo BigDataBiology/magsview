@@ -34,7 +34,7 @@ import Bootstrap.Table as Table
 
 import DataModel exposing (MAG)
 import Data exposing (mags)
-import GenomeStats exposing (taxonomyLast)
+import GenomeStats exposing (taxonomyLast, splitTaxon, showTaxon)
 import Shared
 
 
@@ -222,9 +222,9 @@ view model =
                     ] [ Html.a [HtmlAttr.href "#" ] [ Html.text h ] ]
         maybeSimplifyTaxonomy =
             if model.showFullTaxonomy then
-                identity
+                Html.text
             else
-                taxonomyLast
+                taxonomyLast >> showTaxon
         taxonomyHeader =
             Table.th
                 [
@@ -317,7 +317,7 @@ view model =
                                 , Table.td [] [ Html.text (t.contamination |> String.fromFloat) ]
                                 , Table.td [] [ Html.text (t.nrContigs |> String.fromInt) ]
                                 , Table.td [] [ Html.text (t.genomeSize |> (\s -> toFloat (s // 1000// 10) /100.0) |> String.fromFloat) ]
-                                , Table.td [] [ Html.text <| maybeSimplifyTaxonomy t.taxonomy ]
+                                , Table.td [] [ maybeSimplifyTaxonomy t.taxonomy ]
                                 ])
                         |> Table.tbody []
                 }

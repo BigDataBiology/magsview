@@ -4,7 +4,8 @@ module GenomeStats exposing (chartNrContigs,
                             Quality, magQuality, qualityString,
                             taxonomyLast,
                             printableTaxonomy,
-                            splitTaxon)
+                            splitTaxon,
+                            showTaxon)
 
 
 import Html
@@ -205,3 +206,14 @@ splitTaxon name =
             _ -> ""
     in
         (tlevel, sname)
+
+showTaxon : String -> Html.Html msg
+showTaxon name =
+    let
+        (tlevel, sname) = splitTaxon name
+    in
+        Html.span []
+            [Html.text sname
+            , Html.span [HtmlAttr.class "taxonomy-class"]
+                [Html.text (" ("++tlevel++")")]]
+

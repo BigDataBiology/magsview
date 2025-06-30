@@ -1,3 +1,4 @@
+
 module Pages.Genome.Genome_ exposing (Model, Msg, page)
 
 import Html
@@ -25,7 +26,7 @@ import Shared
 import Data exposing (mags)
 import DataModel exposing (MAG)
 import Layouts
-import GenomeStats exposing (taxonomyLast, printableTaxonomy, splitTaxon)
+import GenomeStats exposing (taxonomyLast, printableTaxonomy, showTaxon)
 
 -- INIT
 
@@ -210,16 +211,6 @@ basicTR title value =
         , Table.td []
             [ Html.text value ]
         ]
-
-showTaxon : String -> Html.Html Msg
-showTaxon name =
-    let
-        (tlevel, sname) = splitTaxon name
-    in
-        Html.span []
-            [Html.text sname
-            , Html.span [HtmlAttr.class "taxonomy-class"]
-                [Html.text (" ("++tlevel++")")]]
 
 showMag : Model -> MAG -> List (Html.Html Msg)
 showMag model mag =
