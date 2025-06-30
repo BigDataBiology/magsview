@@ -216,79 +216,77 @@ showMag : Model -> MAG -> List (Html.Html Msg)
 showMag model mag =
     [ Html.h1 []
         [ Html.text ("Genome: " ++ mag.id) ]
-    , Html.h2 []
-        [ Html.text "MAG Information" ]
-    , Grid.simpleRow [ Grid.col [ ] [
-        Table.table
-            { options = [ Table.striped, Table.hover, Table.responsive ]
-            , thead =  Table.simpleThead
-                [ Table.th []
-                    [ Html.text "Property" ]
-                , Table.th []
-                    [ Html.text "Value" ]
-                ]
-        , tbody = Table.tbody []
-            ([basicTR "Genome ID" mag.id
-            , Table.tr []
-                [ Table.td []
-                    [Html.text "Taxonomy (GTDB)"]
-                , Table.td []
-                    [Html.div
-                        [HtmlAttr.style "border-bottom" "2px solid black"]
-                        (let
-                            r : List String -> List (Html.Html Msg)
-                            r tax = case tax of
-                                [] -> []
-                                (x::xs) ->
-                                    [Html.div [HtmlAttr.style "padding-left" "1em"
-                                            , HtmlAttr.style "border-left" "2px solid black"
-                                            ]
-                                        ((showTaxon x)::(r xs))
+    , Grid.simpleRow [
+        Grid.col [ ] [
+            Html.h3 [] [ Html.text "General QC information" ]
+            , Table.table
+                    { options = [ Table.striped, Table.hover, Table.responsive ]
+                    , thead =  Table.simpleThead
+                        [ Table.th []
+                            [ Html.text "Property" ]
+                        , Table.th []
+                            [ Html.text "Value" ]
+                        ]
+                , tbody = Table.tbody []
+                    ([basicTR "Genome ID" mag.id
+                    , basicTR "#Contigs" (String.fromInt mag.nrContigs)
+                    , basicTR "Genome Size (bp)" (showWithCommas mag.genomeSize)
+                    , basicTR "Completeness (%)" (String.fromFloat mag.completeness)
+                    , basicTR "Contamination (%)" (String.fromFloat mag.contamination)
+                    ] ++ show16S model mag ++ [
+                      basicTR "#23s rRNA" (String.fromInt mag.r23sRrna)
+                    , basicTR "#5s rRNA" (String.fromInt mag.r5sRrna)
+                    , basicTR "#tRNA" (String.fromInt mag.trna)
+                ])
+        }]
+        , Grid.col [ ] [
+            Html.h3 [] [ Html.text "Taxonomic classification (GTDB)" ]
+            ,Html.div
+                [HtmlAttr.style "border-bottom" "2px solid black"]
+                (let
+                    r : List String -> List (Html.Html Msg)
+                    r tax = case tax of
+                        [] -> []
+                        (x::xs) ->
+                            [Html.div [HtmlAttr.style "padding-left" "1em"
+                                    , HtmlAttr.style "border-left" "2px solid black"
                                     ]
-                        in r (String.split ";" mag.taxonomy)
+                                ((showTaxon x)::(r xs))
+                            ]
+                in r (String.split ";" mag.taxonomy)
+                )
+            , Html.span []
+                (if mag.isRepresentative
+                    then
+                        [Html.span []
+                            [ Html.text "This genome is the representative genome for "
+                            , Html.em []
+                                [ Html.text (printableTaxonomy mag.taxonomy)
+                                ]
+                            , Html.text " in our dataset."
+                            , mkTooltipQuestionMark ("The representative genome is the best genome in our data.")
+                            ]
+                        ]
+                    else
+                        [Html.text "No"
+                        ,mkTooltipQuestionMark ("This genome is not the representative genome for its species in our dataset (there are better quality genomes available)."
                         )
-                    ]
-                ]
-            , Table.tr []
-                [ Table.td []
-                    [Html.text "Is Representative" ]
-                , Table.td []
-                    ((if mag.isRepresentative
-                        then
-                            [Html.text "Yes"
-                            ,mkTooltipQuestionMark ("This genome is the representative genome for its species in our dataset (the best quality genome available)."
-                            )
-                            ]
-                        else
-                            [Html.text "No"
-                            ,mkTooltipQuestionMark ("This genome is not the representative genome for its species in our dataset (there are better quality genomes available)."
-                            )
-                            ]
-                    ) ++ (let
-                            n = mags
-                                    |> List.filter (\m -> m.taxonomy == mag.taxonomy)
-                                    |> List.length
-                        in
-                            [if n == 1
-                                then Html.text <| " (only genome of "++printableTaxonomy mag.taxonomy++")"
-                                else Html.a [HtmlAttr.href ("/genomes?taxonomy="++ taxonomyLast mag.taxonomy)]
-                                        [Html.text <|
-                                                " (a total of " ++ String.fromInt n ++
-                                                    " genomes of "++ printableTaxonomy mag.taxonomy ++ " available, click to see all)"
-                                        ]
-                            ]
-                    ))
-                ]
-            , basicTR "#Contigs" (String.fromInt mag.nrContigs)
-            , basicTR "Genome Size (bp)" (showWithCommas mag.genomeSize)
-            , basicTR "Completeness (%)" (String.fromFloat mag.completeness)
-            , basicTR "Contamination (%)" (String.fromFloat mag.contamination)
-            ] ++ show16S model mag ++ [
-              basicTR "#23s rRNA" (String.fromInt mag.r23sRrna)
-            , basicTR "#5s rRNA" (String.fromInt mag.r5sRrna)
-            , basicTR "#tRNA" (String.fromInt mag.trna)
-        ])
-        }]]
+                        ]
+                )
+            , Html.p []
+                (let
+                    n = mags
+                            |> List.filter (\m -> m.taxonomy == mag.taxonomy)
+                            |> List.length
+                in
+                    [if n == 1
+                        then Html.text <| "(This is the only genome for "++printableTaxonomy mag.taxonomy++")"
+                        else Html.a [HtmlAttr.href ("/genomes?taxonomy="++ taxonomyLast mag.taxonomy)]
+                                [Html.text <|
+                                        "A total of " ++ String.fromInt n ++
+                                            " genomes of "++ printableTaxonomy mag.taxonomy ++ " are available (click to see all)"
+                                ]])
+            ]]
     , Grid.simpleRow [ Grid.col []
         [ Html.h2 []
            [ Html.text "Antibiotic resistance genes" ]
