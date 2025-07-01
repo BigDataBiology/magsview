@@ -230,9 +230,9 @@ showMag model mag =
                 , tbody = Table.tbody []
                     ([basicTR "Genome ID" mag.id
                     , basicTR "#Contigs" (String.fromInt mag.nrContigs)
-                    , basicTR "Genome Size (bp)" (showWithCommas mag.genomeSize)
-                    , basicTR "Completeness (%)" (String.fromFloat mag.completeness)
-                    , basicTR "Contamination (%)" (String.fromFloat mag.contamination)
+                    , basicTR "Genome Size" (showWithCommas mag.genomeSize ++ " bp")
+                    , basicTR "Completeness" (String.fromFloat mag.completeness ++ "%")
+                    , basicTR "Contamination" (String.fromFloat mag.contamination ++ "%")
                     ] ++ show16S model mag ++ [
                       basicTR "#23s rRNA" (String.fromInt mag.r23sRrna)
                     , basicTR "#5s rRNA" (String.fromInt mag.r5sRrna)
@@ -333,6 +333,7 @@ showSingle16s model ix m =
     Html.div [ HtmlAttr.style "padding-left" "1em"
                 , HtmlAttr.style "margin-bottom" "1em"
                 , HtmlAttr.style "border-left" "2px solid black"
+                , HtmlAttr.style "position" "relative" -- create a containing block for the absolute positioned index later
                 ]
             [ if List.member ix model.expanded16S
                 then
@@ -343,9 +344,19 @@ showSingle16s model ix m =
                         [ Html.text <| String.slice 0 60 m.seq ++ "..." ]
             , Html.p []
                 [Html.text "Maps to microbe atlas OTU: "
-                , mkTooltipQuestionMark ("Microbe Atlas is a database of 16S amplicon sequences and where they are found in the environment.")
                 , Html.a [ HtmlAttr.href (microbeAtlasBaseURL ++ m.otu), HtmlAttr.class "microbeAtlasLink" ]
                     [ Html.text m.otu ]
+                ]
+            , Html.div
+                [ HtmlAttr.style "position" "absolute"
+                , HtmlAttr.style "left" "0px"
+                , HtmlAttr.style "transform" "translateX(-120%)"
+                , HtmlAttr.style "top" "0px"
+                , HtmlAttr.style "background-color" "#333"
+                , HtmlAttr.style "color" "#ccc"
+                , HtmlAttr.style "padding" "0.2em 0.5em"
+                ]
+                [ Html.text (String.fromInt (ix + 1))
                 ]
             ]
 
@@ -361,7 +372,26 @@ show16S model mag =
                 then
                 [ Table.tr []
                     [ Table.td []
-                        [ Html.text "16s rRNA matches" ]
+                        [ Html.h5 [HtmlAttr.style "color" "black"]
+                            [ Html.text "16s rRNA" ]
+                        , Html.p [HtmlAttr.style "padding-top" "3em"
+                                , HtmlAttr.style "margin-right" "1.5em"
+                                , HtmlAttr.style "font-style" "italic"
+                                ]
+                            [ Html.text
+                                """Microbe Atlas (by the von Mering group) is a
+                                database of 16S amplicon sequences and where
+                                they are found in the environment."""
+                            ]
+                        , Html.p [HtmlAttr.style "margin-right" "1.5em"
+                                , HtmlAttr.style "font-style" "italic"
+                                ]
+                            [ Html.text
+                                """Following the links on the right will take you to the
+                                Microbe Atlas database where you can find information about
+                                where these sequences are found in other environments."""
+                            ]
+                        ]
                     , Table.td []
                         [ Html.div []
                             (magdata.microbeAtlas
