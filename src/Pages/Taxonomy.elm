@@ -221,7 +221,9 @@ showTree path showDownloadModal treeNode =
                     , if isL
                         then Html.span [] []
                         else Html.span
-                            [HE.onClick ((if isC then ExpandNode else CollapseNode) name)]
+                            [HE.onClick ((if isC then ExpandNode else CollapseNode) name)
+                            , HtmlAttr.style "cursor" "pointer"
+                            ]
                             [ Html.text (" ["++ (if isC then "+" else "-")++ "]")]
                     ]
     in Html.div [ HtmlAttr.class "tree-node"
