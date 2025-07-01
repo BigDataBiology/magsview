@@ -49,7 +49,7 @@ contentOther : String
 contentOther = """
 ## Shanghai dog gut microbiome
 
-We are currently (late _June 2025_) preparing a manuscript describing the resource and the results of our analyses and we are working on making the data available.
+We are currently (_July 2025_) preparing a manuscript describing the resource and the results of our analyses and we are working on making the data available.
 
 Please contact us if you are interested in the data: [anna@big-data-biology.org](mailto:anna@big-data-biology.org) or [luispedro@big-data-biology.org](mailto:luispedro@big-data-biology.rorg).
 
@@ -107,6 +107,8 @@ contentManuscript : String
 contentManuscript = """
 ## A manuscript is under preparation
 
-Manuscript
+As of _July 2025_, we are currently preparing a manuscript describing the resource and the results of our analyses. We are also working on making the data available.
+
+Please contact us if you are interested in receiving a pre-pre-preprint: [anna@big-data-biology.org](mailto:anna@big-data-biology.org) or [luispedro@big-data-biology.org](mailto:luispedro@big-data-biology.rorg).
 """
 
