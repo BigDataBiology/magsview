@@ -320,8 +320,22 @@ showMag model mag =
                 , Html.a [ HtmlAttr.href "https://card.mcmaster.ca/" ] [ Html.text "Comprehensive Antibiotic Resistance Database (CARD)" ]
                 , Html.text "."
                 ]
-        ]
-    ]]
+        ]]
+    , Grid.simpleRow [ Grid.col []
+        [ Html.h2 []
+            [ Html.text "Download data" ]
+        , Html.p []
+            [ Html.text "Coming soon" ]
+        , Html.ol []
+            [ Html.li []
+                [ Html.text "FASTA file (sequence)" ]
+            , Html.li []
+                [ Html.text "eggnog-mapper annotations" ]
+            , Html.li []
+                [ Html.text "RGI predictions (antibiotic resistance genes)" ]
+            ]
+        ]]
+    ]
 
 
 microbeAtlasBaseURL : String
