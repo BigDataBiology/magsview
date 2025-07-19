@@ -395,8 +395,13 @@ show16S model mag =
                             [ Html.text
                                 """Microbe Atlas (by the von Mering group) is a
                                 database of 16S amplicon sequences and where
-                                they are found in the environment."""
+                                they are found in the environment. For details,
+                                see """
+                            , Html.a [HtmlAttr.href "https://doi.org/10.1101/2025.07.18.665519"]
+                                [ Html.text "(Matias Rodrigues et al., 2025)"]
+                            , Html.text "."
                             ]
+
                         , Html.p [HtmlAttr.style "margin-right" "1.5em"
                                 , HtmlAttr.style "font-style" "italic"
                                 ]
