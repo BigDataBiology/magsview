@@ -415,10 +415,12 @@ show16S model mag =
                     ]
                 ]
                 else
-                [ Table.tr [ ]
+                [ Table.tr [Table.rowAttr <| HE.onClick Toggle16SExpanded]
                     [ Table.td [ ]
                         [ Html.span [HE.onClick Toggle16SExpanded ]
-                            [ Html.text "#16s rRNA (click to see details & matches)" ]
+                            [ Html.text "#16s rRNA "
+                            , Html.a [HtmlAttr.href "#"] [Html.text "(click to see details & matches)" ]
+                            ]
                         ]
                     , Table.td []
                         [ Html.text <| String.fromInt mag.r16sRrna ++ " matches" ]
