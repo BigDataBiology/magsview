@@ -419,7 +419,9 @@ show16S model mag =
                     [ Table.td [ ]
                         [ Html.span [HE.onClick Toggle16SExpanded ]
                             [ Html.text "#16s rRNA "
-                            , Html.a [HtmlAttr.href "#"] [Html.text "(click to see details & matches)" ]
+                            , Html.a [HtmlAttr.href "#"
+                                     ,HE.onClick Toggle16SExpanded]
+                                [Html.text "(click to see details & matches)" ]
                             ]
                         ]
                     , Table.td []
