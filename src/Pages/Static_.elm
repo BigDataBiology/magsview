@@ -49,7 +49,7 @@ contentOther : String
 contentOther = """
 ## Shanghai dog gut microbiome
 
-We are currently (_July 2025_) preparing a manuscript describing the resource and the results of our analyses and we are working on making the data available.
+We are currently (_July 2025_) preparing a manuscript describing the resource and the results of our analyses. We are also are working on making the data available as we intend this to become a major resource for the scientific community.
 
 Please contact us if you are interested in the data: [anna@big-data-biology.org](mailto:anna@big-data-biology.org) or [luispedro@big-data-biology.org](mailto:luispedro@big-data-biology.rorg).
 
@@ -59,7 +59,7 @@ The MAG catalogue includes:
 
 1. The MAGs themselves, in FASTA format.
 2. Eggog-mapper annotations for the MAGs.
-3. RGI annotations for the MAGs (AntiMicrobial Resistance Genes).
+3. RGI annotations for the MAGs (Antimicrobial Resistance Genes).
 4. A table with the MAGs, their size, completeness, contamination, and other statistics.
 
 
@@ -67,8 +67,9 @@ The MAG catalogue includes:
 
 We provide a catalogue of extra-chromosomal elements, including plasmids.
 
-1. The plasmids themselves, in FASTA format.
-2. Eggog-mapper annotations for the plasmids.
+1. The sequences themselves, in FASTA format.
+2. A table with information including putative host prediction, element type classification (plasmid, phage, or unclassified).
+3. Eggog-mapper annotations for the sequences.
 
 
 ### Gene catalogue
@@ -83,7 +84,7 @@ As a resource for download, we provide:
 
 1. The genes themselves, in FASTA format; including both nucleotides and amino acids versions.
 2. Eggog-mapper annotations for the genes.
-3. The clustering table
+3. The clustering table.
 
 ### Small protein catalogue
 
