@@ -81,7 +81,7 @@ init :
 init _ =
     let
         model =
-            { tree = CollapsedNode "r__Root" mags
+            { tree = expandNode 0 "r__Root" <| CollapsedNode "r__Root" mags
             , showDownloadModal = Nothing
             }
     in
