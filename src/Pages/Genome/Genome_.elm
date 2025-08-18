@@ -318,6 +318,12 @@ showMag model mag =
            , Html.p []
                 [ Html.text "ARGs are predicted using RGI (Resistance Gene Identifier) based on the "
                 , Html.a [ HtmlAttr.href "https://card.mcmaster.ca/" ] [ Html.text "Comprehensive Antibiotic Resistance Database (CARD)" ]
+                , Html.text ". Results were mapped to "
+                , Html.a [ HtmlAttr.href "https://genepi.food.dtu.dk/resfinder"]
+                        [ Html.text "ResFinder" ]
+                , Html.text " using "
+                , Html.a [ HtmlAttr.href "https://doi.org/10.1093/bioinformatics/btaf173" ]
+                        [ Html.text "argNorm" ]
                 , Html.text "."
                 ]
         ]]
@@ -330,7 +336,10 @@ showMag model mag =
             [ Html.li []
                 [ Html.text "FASTA file (sequence)" ]
             , Html.li []
-                [ Html.text "eggnog-mapper annotations" ]
+                [ Html.a
+                    [HtmlAttr.href "https://academic.oup.com/mbe/article/38/12/5825/6379734"]
+                    [Html.text "Eggnog-mapper"]
+                , Html.text " annotations" ]
             , Html.li []
                 [ Html.text "RGI predictions (antibiotic resistance genes)" ]
             ]
