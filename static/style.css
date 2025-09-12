@@ -62,3 +62,11 @@ cite.journal-title {
     font-variant: small-caps;
 }
 
+blockquote {
+    border-left: solid 4px #63ba92;
+    margin-left: 0px;
+    margin-right: 0px;
+    padding-left: 1em;
+    color: #333333;
+}
+

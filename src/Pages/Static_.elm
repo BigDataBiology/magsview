@@ -49,7 +49,7 @@ contentOther : String
 contentOther = """
 ## Shanghai dog gut microbiome
 
-We are currently (_July 2025_) preparing a manuscript describing the resource and the results of our analyses. We are also are working on making the data available as we intend this to become a major resource for the scientific community.
+
 
 Please contact us if you are interested in the data: [anna@big-data-biology.org](mailto:anna@big-data-biology.org) or [luispedro@big-data-biology.org](mailto:luispedro@big-data-biology.rorg).
 
@@ -106,10 +106,13 @@ Supplementary Tables in the manuscript.
 
 contentManuscript : String
 contentManuscript = """
-## A manuscript is under preparation
+## Manuscript
 
-As of _July 2025_, we are currently preparing a manuscript describing the resource and the results of our analyses. We are also working on making the data available.
+> _Long-read metagenomics of Shanghai pet dogs captures global pet dog gut
+> microbial diversity and recovers hundreds of bacterial species as
+> near-finished genomes_ by Anna Cuscó, Yiqian Duan, Fernando Gil, Alexei
+> Chklovski, Nithya Kruthi, Shaojun Pan, Sofia Forslund, Susanne Lau, Ulrike
+> Löber, Xing-Ming Zhao, and Luis Pedro Coelho (bioRxiv PREPRINT 2025)
 
-Please contact us if you are interested in receiving a pre-pre-preprint: [anna@big-data-biology.org](mailto:anna@big-data-biology.org) or [luispedro@big-data-biology.org](mailto:luispedro@big-data-biology.rorg).
 """
 
