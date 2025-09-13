@@ -108,11 +108,11 @@ contentManuscript : String
 contentManuscript = """
 ## Manuscript
 
-> _Long-read metagenomics of Shanghai pet dogs captures global pet dog gut
-> microbial diversity and recovers hundreds of bacterial species as
-> near-finished genomes_ by Anna Cuscó, Yiqian Duan, Fernando Gil, Alexei
-> Chklovski, Nithya Kruthi, Shaojun Pan, Sofia Forslund, Susanne Lau, Ulrike
-> Löber, Xing-Ming Zhao, and Luis Pedro Coelho (bioRxiv PREPRINT 2025)
+> _Capturing global pet dog gut microbial diversity and hundreds of
+> near-finished bacterial genomes by using long-read metagenomics in a Shanghai
+> cohort_ by Anna Cuscó, Yiqian Duan, Fernando Gil, Alexei Chklovski, Nithya
+> Kruthi, Shaojun Pan, Sofia Forslund, Susanne Lau, Ulrike  Löber, Xing-Ming
+> cZhao, and Luis Pedro Coelho (bioRxiv PREPRINT 2025)
 
 """
 
