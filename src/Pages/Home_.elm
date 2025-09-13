@@ -40,7 +40,7 @@ the dog gut microbiome so far have used short-read sequencing, which breaks
 up genomes and misses important pieces like mobile elements, resistance genes,
 and ribosomal genes.
 
-![Shanghai dog](static/Fig1a.svg)
+![Shanghai dog](/Fig1a.svg)
 
 For this project, we used deep long-read sequencing (ONT), polished with
 Illumina short reads on stool samples from 51 pet dogs in Shanghai. This gave
@@ -48,7 +48,7 @@ us **2,676 high-quality genomes** from **320 different bacterial species**. In
 total, 72% of them are close to finished quality, _often better than the
 available reference genomes_.
 
-![Shanghai dog](static/Fig1e.svg)
+![Shanghai dog](/Fig1e.svg)
 
 When we compared our data to other dog microbiome datasets from around the
 world, we found strong overlap (with over 90% of reads mapping to our genomes),
