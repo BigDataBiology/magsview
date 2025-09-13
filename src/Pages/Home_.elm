@@ -32,7 +32,7 @@ content = """
 > near-finished bacterial genomes by using long-read metagenomics in a Shanghai
 > cohort_ by Anna Cuscó, Yiqian Duan, Fernando Gil, Alexei Chklovski, Nithya
 > Kruthi, Shaojun Pan, Sofia Forslund, Susanne Lau, Ulrike  Löber, Xing-Ming
-> cZhao, and Luis Pedro Coelho (bioRxiv PREPRINT 2025)
+> Zhao, and Luis Pedro Coelho (bioRxiv PREPRINT 2025)
 
 Dogs are part of the family, and learning about their gut microbes can tell us
 a lot about both their health and the household they live in. Most studies of
@@ -43,7 +43,7 @@ and ribosomal genes.
 ![Shanghai dog](/Fig1a.svg)
 
 For this project, we used deep long-read sequencing (ONT), polished with
-Illumina short reads on stool samples from 51 pet dogs in Shanghai. This gave
+short reads (Illumina) on stool samples from 51 pet dogs in Shanghai. This gave
 us **2,676 high-quality genomes** from **320 different bacterial species**. In
 total, 72% of them are close to finished quality, _often better than the
 available reference genomes_.
