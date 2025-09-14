@@ -27,6 +27,7 @@ import DataModel exposing (MAG)
 import Data exposing (mags)
 import Layouts
 import GenomeStats exposing (splitTaxon)
+import Downloads exposing (mkFASTALink)
 
 
 type TreeNode =
@@ -281,16 +282,29 @@ showTree path showDownloadModal treeNode =
                 , Modal.view []
                     { isOpen = showDownloadModal /= Nothing
                     , onClose = Just ClearDownload
-                    , content = [Html.div []
-                        [Html.pre []
-                        ((Html.text "# Run this command to download the genomes:\n")::
-                        (showDownloadModal
+                    , content =
+                        [showDownloadModal
                             |> Maybe.withDefault []
-                            |> List.map (\m ->
-                                Html.text <| "wget https://mags-base.big-data-biology.org/SH_DOGS/" ++ m.id ++ ".fna.gz\n"
-                            )
-                        ))]
-                        ]
+                            |> makeModal]
                     }
                 ]
         ))
+
+makeModal : List MAG -> Html.Html Msg
+makeModal ms =
+    Html.div [HtmlAttr.class "download-modal"]
+        [Html.h3 [] [Html.text "Download"]
+        , Html.p []
+            [ Html.text <| "You are downloading " ++ String.fromInt (List.length ms) ++ " genomes." ]
+        ,Html.h4 [] [Html.text "Download links"]
+        ,Html.ol []
+            (List.map (\m ->
+                Html.li []
+                    [Html.a [HtmlAttr.href (mkFASTALink m.id)] [Html.text m.id]]
+                ) ms)
+        ,Html.h4 [] [Html.text "Command line download"]
+        ,Html.pre []
+            ((Html.text "# Run this command to download the genomes:\n")::
+            List.map (\m ->
+                Html.text <| "wget " ++ mkFASTALink m.id ++ "\n"
+            ) ms)]

@@ -27,6 +27,7 @@ import DataModel exposing (MAG)
 import Layouts
 import GenomeStats exposing (taxonomyLast, printableTaxonomy, showTaxon)
 import Utils exposing (mkTooltipQuestionMark)
+import Downloads exposing (mkFASTALink, mkENOGLink)
 
 -- INIT
 
@@ -330,16 +331,17 @@ showMag model mag =
     , Grid.simpleRow [ Grid.col []
         [ Html.h2 []
             [ Html.text "Download data" ]
-        , Html.p []
-            [ Html.text "Coming soon" ]
         , Html.ol []
             [ Html.li []
-                [ Html.text "FASTA file (sequence)" ]
+                [ Html.a
+                    [HtmlAttr.href (mkFASTALink mag.id)]
+                    [Html.text "FASTA file (sequence)" ]
+                ]
             , Html.li []
                 [ Html.a
-                    [HtmlAttr.href "https://academic.oup.com/mbe/article/38/12/5825/6379734"]
-                    [Html.text "Eggnog-mapper"]
-                , Html.text " annotations" ]
+                    [HtmlAttr.href (mkENOGLink mag.id)]
+                    [Html.text "Eggnog-mapper annotations" ]
+                ]
             , Html.li []
                 [ Html.text "RGI predictions (antibiotic resistance genes)" ]
             ]

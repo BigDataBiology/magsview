@@ -70,3 +70,9 @@ blockquote {
     color: #333333;
 }
 
+div.download-modal {
+    border: solid 2px #63ba92;
+    padding: 1em;
+    margin: 1em 0em 1em 0em;
+    background-color: #f0f8f0;
+}
