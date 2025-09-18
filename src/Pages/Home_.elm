@@ -32,7 +32,8 @@ content = """
 > near-finished bacterial genomes by using long-read metagenomics in a Shanghai
 > cohort_ by Anna Cuscó, Yiqian Duan, Fernando Gil, Alexei Chklovski, Nithya
 > Kruthi, Shaojun Pan, Sofia Forslund, Susanne Lau, Ulrike  Löber, Xing-Ming
-> Zhao, and Luis Pedro Coelho (bioRxiv PREPRINT 2025)
+> Zhao, and Luis Pedro Coelho (bioRxiv PREPRINT 2025,
+> [DOI:10.1101/2025.09.17.676595](https://doi.org/10.1101/2025.09.17.676595))
 
 Dogs are part of the family, and learning about their gut microbes can tell us
 a lot about both their health and the household they live in. Most studies of
