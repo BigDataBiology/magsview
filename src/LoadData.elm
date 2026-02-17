@@ -14,12 +14,21 @@ truthy str =
         , "1"
         ]
 
+normalizeTaxonomy : String -> String
+normalizeTaxonomy tax =
+    if String.isEmpty tax then
+        "d__unclassified"
+    else if not (String.startsWith "d__" tax) then
+        "d__" ++ tax
+    else
+        tax
+
 decoder : Decoder MAG
 decoder =
     Decode.into MAG
         |> Decode.pipeline (Decode.field "id" Decode.string)
         |> Decode.pipeline (Decode.field "samples_id" (Decode.string |> Decode.map (String.split ",")))
-        |> Decode.pipeline (Decode.field "taxonomy" Decode.string)
+        |> Decode.pipeline (Decode.field "taxonomy" (Decode.string |> Decode.map normalizeTaxonomy))
         |> Decode.pipeline (Decode.field "completeness" Decode.float)
         |> Decode.pipeline (Decode.field "contamination" Decode.float)
         |> Decode.pipeline (Decode.field "genome_size" Decode.int)
