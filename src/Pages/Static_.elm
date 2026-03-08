@@ -42,7 +42,7 @@ contentAbout = """
 
 This was a project led by _Anna Cuscó_ (Fudan University) in the [Big Data Biology Lab](https://big-data-biology.org) led by _Luis Pedro Coelho_. The project is currently being finalized for publication. The data will also be made available at a suitable repository.
 
-Please contact us if you are interested in the data: [anna@big-data-biology.org](mailto:anna@big-data-biology.org) or [luispedro@big-data-biology.org](mailto:luispedro@big-data-biology.rorg).
+Please contact us if you are interested in the data: [anna@big-data-biology.org](mailto:anna@big-data-biology.org) or [luispedro@big-data-biology.org](mailto:luispedro@big-data-biology.org).
 """
 
 contentOther : String
@@ -51,7 +51,7 @@ contentOther = """
 
 
 
-Please contact us if you are interested in the data: [anna@big-data-biology.org](mailto:anna@big-data-biology.org) or [luispedro@big-data-biology.org](mailto:luispedro@big-data-biology.rorg).
+Please contact us if you are interested in the data: [anna@big-data-biology.org](mailto:anna@big-data-biology.org) or [luispedro@big-data-biology.org](mailto:luispedro@big-data-biology.org).
 
 ### MAG catalogue
 
@@ -116,4 +116,3 @@ contentManuscript = """
 > [DOI:10.1101/2025.09.17.676595](https://doi.org/10.1101/2025.09.17.676595))
 
 """
-
