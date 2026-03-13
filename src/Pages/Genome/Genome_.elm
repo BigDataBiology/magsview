@@ -962,8 +962,7 @@ renderGeneArrow scale cy gene =
         halfHeight = 8
         color = cogColor (String.left 1 gene.cogCategory)
         tooltipText =
-            gene.seqid
-                ++ (if String.isEmpty gene.preferredName then "" else " (" ++ gene.preferredName ++ ")")
+            (if String.isEmpty gene.preferredName then gene.seqid else gene.preferredName)
                 ++ " [" ++ (if String.isEmpty gene.cogCategory then "-" else gene.cogCategory) ++ "]"
         points =
             if gene.strand == "+" then
