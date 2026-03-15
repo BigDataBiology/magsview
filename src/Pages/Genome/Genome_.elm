@@ -1230,7 +1230,7 @@ renderGeneDetail state =
                                         , HtmlAttr.style "color" "#666"
                                         , HtmlAttr.style "margin-left" "0.5em"
                                         ]
-                                [ Html.text ("(" ++ String.fromInt (String.length seqData.protein) ++ " aa, translation table 11)") ]
+                                [ Html.text ("(" ++ showWithCommas (String.length seqData.protein) ++ " aa, translation table 11)") ]
                             ]
                         , copyButton "copy-protein" seqData.protein
                         ]
@@ -1248,7 +1248,7 @@ renderGeneDetail state =
                                         , HtmlAttr.style "color" "#666"
                                         , HtmlAttr.style "margin-left" "0.5em"
                                         ]
-                                [ Html.text ("(" ++ String.fromInt (String.length seqData.dna) ++ " bp)") ]
+                                [ Html.text ("(" ++ showWithCommas (String.length seqData.dna) ++ " bp)") ]
                             ]
                         , copyButton "copy-dna" seqData.dna
                         ]
@@ -1434,8 +1434,8 @@ geneDetailHeader gene =
                     , HtmlAttr.style "margin-left" "1em"
                     ]
             [ Html.text (gene.contig
-                ++ " : " ++ String.fromInt gene.start
-                ++ "-" ++ String.fromInt gene.end
+                ++ " : " ++ showWithCommas gene.start
+                ++ "-" ++ showWithCommas gene.end
                 ++ " [" ++ gene.strand ++ "]"
                 )
             ]
