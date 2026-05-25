@@ -164,19 +164,23 @@ shuffleWithSeed seed xs =
         step s =
             modBy 2147483647 (s * 1103515245 + 12345)
 
-        tag s items =
+        -- We use an accumulator to make the function tail-recursive
+        -- and avoid stack overflow on large lists. The fact that the
+        -- result is in reverse order doesn't matter since we sort by the keys
+        -- anyway.
+        tag acc s items =
             case items of
                 [] ->
-                    []
+                    acc
 
                 x :: rest ->
                     let
                         s2 = step s
                     in
-                    ( s2, x ) :: tag s2 rest
+                    tag ( (s2, x) :: acc ) s2 rest
     in
     xs
-        |> tag (max 1 seed)
+        |> tag [] (max 1 seed)
         |> List.sortBy Tuple.first
         |> List.map Tuple.second
 
@@ -254,16 +258,18 @@ update msg model =
 
                 ( nextStart, queueAfter ) =
                     case model.queue of
-                        [] -> ( [], [] )
-                        next :: rest -> ( [ next ], rest )
+                        [] -> ( Nothing, [] )
+                        next :: rest -> ( Just next, rest )
 
                 inFlight =
-                    model.inFlight - 1 + List.length nextStart
+                    model.inFlight - 1 + case nextStart of
+                        Nothing -> 0
+                        Just _ -> 1
 
                 cmd =
-                    nextStart
-                        |> List.map (\( id, k ) -> checkResource id k)
-                        |> Cmd.batch
+                    case nextStart of
+                        Nothing -> Cmd.none
+                        Just ( id, k ) -> checkResource id k
             in
             ( { model
                 | results = results
