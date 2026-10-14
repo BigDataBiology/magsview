@@ -12,21 +12,8 @@ import View exposing (View)
 import Http
 import Json.Decode as D
 import Json.Encode as E
-import Dict
-import Task
-import Browser.Dom
-import Browser.Events
 
-import Svg
-import Svg.Attributes as SvgAttr
-import Svg.Events as SvgEvents
-
-import W.InputCheckbox as InputCheckbox
-import Bootstrap.Button as Button
-import Bootstrap.Dropdown as Dropdown
 import Bootstrap.Grid as Grid
-import Bootstrap.Grid.Col as Col
-import Bootstrap.Grid.Row as Row
 import Bootstrap.Table as Table
 
 
@@ -34,13 +21,15 @@ import Shared
 import Data exposing (mags)
 import DataModel exposing (MAG)
 import Layouts
-import GenomeStats exposing (taxonomyLast, printableTaxonomy, showTaxon)
-import Utils exposing (mkTooltipQuestionMark)
-import Data.Info exposing (mkFASTALink, mkENOGLink, mkEMapperSummaryLink, mkBarrnapLink)
+import GenomeStats exposing (printableTaxonomy, showTaxon)
+import Utils exposing (mkTooltipQuestionMark, showWithCommas, legendItem)
+import Data.Info exposing (mkFASTALink, mkENOGLink, mkEMapperSummaryLink)
 import GeneSequence
 import EMapper exposing (EMapperGene, GeneType(..), parseEMapperTsv)
 import GenomeData exposing (MAGData, MicrobeAtlasMatch, decodeMAGData)
 import Barrnap exposing (decodeRRnaGenes)
+import Cog
+import GenomeMap exposing (ContigInfo)
 
 -- INIT
 
@@ -70,15 +59,6 @@ type RRnaDataModel
     | RRnaError String
     | RRnaWaiting
 
-{-| Drag-to-pan state of the genome map. `DragJustEnded` remembers that the
-last mouse press panned the map, so that the click which the browser fires on
-release does not also select the gene under the pointer.
--}
-type GenomeMapDrag
-    = NotDragging
-    | Dragging { startX : Float, startOffset : Float, moved : Bool }
-    | DragJustEnded
-
 type GeneDisplayFilter
     = ShowAll
     | ShowProteinCoding
@@ -91,9 +71,7 @@ type alias Model =
     , expanded : Bool
     , expanded16S : List Int
     , showARGSequences : Bool
-    , genomeMapZoom : Float
-    , genomeMapOffset : Float
-    , genomeMapDrag : GenomeMapDrag
+    , genomeMap : GenomeMap.State
     , magId : String
     , geneSequence : GeneSequenceState
     , showGeneTable : Bool
@@ -107,17 +85,7 @@ type Msg =
     | Toggle16SExpanded
     | Expand16S Int
     | ToggleShowARGSequences
-    | GenomeMapZoomIn
-    | GenomeMapZoomOut
-    | GenomeMapZoomReset
-    | GenomeMapScrollLeft
-    | GenomeMapScrollRight
-    | GenomeMapDragStart Float
-    | GenomeMapDragMove Float
-    | GenomeMapDragEnd
-    | GenomeMapWheelZoom Float Float
-    | GenomeMapWheelZoomAt Float Float (Result Browser.Dom.Error Browser.Dom.Element)
-    | GenomeMapWheelPan Float
+    | GenomeMapMsg GenomeMap.Msg
     | SelectAdjacentGene Int
     | GeneClicked EMapperGene
     | GeneSequenceReceived D.Value
@@ -128,7 +96,6 @@ type Msg =
     | DownloadGeneFasta String
     | RRnaDataReceived D.Value
     | SetGeneFilter GeneDisplayFilter
-    | NoMsg
 
 type APIResult =
     APIError String | APIResultOK MAGData
@@ -144,9 +111,7 @@ model0 magid =
     , expanded = False
     , expanded16S = []
     , showARGSequences = False
-    , genomeMapZoom = 1.0
-    , genomeMapOffset = 0.0
-    , genomeMapDrag = NotDragging
+    , genomeMap = GenomeMap.init
     , magId = magid
     , geneSequence = NoGeneSelected
     , showGeneTable = False
@@ -183,16 +148,7 @@ page shared route =
         , subscriptions = \model -> Sub.batch
             [ GeneSequence.receiveGeneSequence GeneSequenceReceived
             , GeneSequence.receiveRRnaGenes RRnaDataReceived
-            , case model.genomeMapDrag of
-                -- Listen on the whole document so that the drag keeps
-                -- working when the pointer leaves the map
-                Dragging _ ->
-                    Sub.batch
-                        [ Browser.Events.onMouseMove (D.map GenomeMapDragMove (D.field "pageX" D.float))
-                        , Browser.Events.onMouseUp (D.succeed GenomeMapDragEnd)
-                        ]
-                _ ->
-                    Sub.none
+            , Sub.map GenomeMapMsg (GenomeMap.subscriptions model.genomeMap)
             ]
         , view = view shared route
         }
@@ -209,6 +165,15 @@ getMAG g =
             Nothing -> Err ("Genome not found: " ++ g)
         )
 
+httpErrorToString : Http.Error -> String
+httpErrorToString err =
+    case err of
+        Http.BadUrl s -> "Bad URL: " ++ s
+        Http.Timeout -> "Timeout"
+        Http.NetworkError -> "Network error"
+        Http.BadStatus s -> "Bad status: " ++ String.fromInt s
+        Http.BadBody s -> "Bad body: " ++ s
+
 update :
     Msg
     -> Model
@@ -219,12 +184,7 @@ update msg model =
             let magdata = case r of
                     Ok (APIResultOK v) -> Loaded v
                     Ok (APIError e) -> LoadError e
-                    Err err -> case err of
-                        Http.BadUrl s -> LoadError ("Bad URL: "++ s)
-                        Http.Timeout  -> LoadError "Timeout"
-                        Http.NetworkError -> LoadError ("Network error!")
-                        Http.BadStatus s -> LoadError (("Bad status: " ++ String.fromInt s))
-                        Http.BadBody s -> LoadError (("Bad body: " ++ s))
+                    Err err -> LoadError (httpErrorToString err)
             in
                 ( { model | magdata = magdata }
                 , Effect.none
@@ -234,12 +194,7 @@ update msg model =
                     Ok tsv -> case parseEMapperTsv tsv of
                         Ok genes -> EMapperLoaded genes
                         Err e -> EMapperError e
-                    Err err -> case err of
-                        Http.BadUrl s -> EMapperError ("Bad URL: " ++ s)
-                        Http.Timeout -> EMapperError "Timeout"
-                        Http.NetworkError -> EMapperError "Network error"
-                        Http.BadStatus s -> EMapperError ("Bad status: " ++ String.fromInt s)
-                        Http.BadBody s -> EMapperError ("Bad body: " ++ s)
+                    Err err -> EMapperError (httpErrorToString err)
             in
                 ( { model | emapperData = emapperData }, Effect.none )
         Toggle16SExpanded ->
@@ -253,89 +208,19 @@ update msg model =
             ( { model | showARGSequences = not model.showARGSequences }
             , Effect.none
             )
-        GenomeMapZoomIn ->
-            ( zoomMapAround 1.5 0.5 model, Effect.none )
-        GenomeMapZoomOut ->
-            ( zoomMapAround (1 / 1.5) 0.5 model, Effect.none )
-        GenomeMapZoomReset ->
-            ( { model | genomeMapZoom = 1.0, genomeMapOffset = 0.0 }, Effect.none )
-        GenomeMapScrollLeft ->
-            ( { model | genomeMapOffset = panOffset model.genomeMapZoom model.genomeMapOffset (-0.2) }, Effect.none )
-        GenomeMapScrollRight ->
-            ( { model | genomeMapOffset = panOffset model.genomeMapZoom model.genomeMapOffset 0.2 }, Effect.none )
 
-        GenomeMapDragStart x ->
-            ( { model
-                | genomeMapDrag =
-                    if model.genomeMapZoom > 1 then
-                        Dragging { startX = x, startOffset = model.genomeMapOffset, moved = False }
-                    else
-                        NotDragging
-              }
-            , Effect.none
-            )
-
-        GenomeMapDragMove x ->
-            case model.genomeMapDrag of
-                Dragging drag ->
-                    let
-                        dx = x - drag.startX
-                        moved = drag.moved || abs dx > 3
-                    in
-                    ( { model
-                        | genomeMapDrag = Dragging { drag | moved = moved }
-                        , genomeMapOffset =
-                            if moved then
-                                panOffset model.genomeMapZoom drag.startOffset (-dx / genomeMapLayout.mapWidth)
-                            else
-                                model.genomeMapOffset
-                      }
-                    , Effect.none
-                    )
-                _ ->
-                    ( model, Effect.none )
-
-        GenomeMapDragEnd ->
-            ( { model
-                | genomeMapDrag =
-                    case model.genomeMapDrag of
-                        Dragging { moved } ->
-                            if moved then DragJustEnded else NotDragging
-                        other ->
-                            other
-              }
-            , Effect.none
-            )
-
-        GenomeMapWheelZoom factor pageX ->
-            -- The pointer position must be related to where the map is on
-            -- the page, which only the DOM knows
-            ( model
-            , Effect.sendCmd
-                (Task.attempt (GenomeMapWheelZoomAt factor pageX)
-                    (Browser.Dom.getElement genomeMapSvgId)
-                )
-            )
-
-        GenomeMapWheelZoomAt factor pageX element ->
+        GenomeMapMsg mapMsg ->
             let
-                anchor =
-                    case element of
-                        Ok el ->
-                            mapPointerFraction el pageX
-                        Err _ ->
-                            0.5
+                ( genomeMap, cmd ) = GenomeMap.update mapMsg model.genomeMap
             in
-            ( zoomMapAround factor anchor model, Effect.none )
-
-        GenomeMapWheelPan px ->
-            ( { model | genomeMapOffset = panOffset model.genomeMapZoom model.genomeMapOffset (px / genomeMapLayout.mapWidth) }
-            , Effect.none
+            ( { model | genomeMap = genomeMap }
+            , Effect.sendCmd (Cmd.map GenomeMapMsg cmd)
             )
 
         SelectAdjacentGene step ->
             let
-                genes = genomeMapGeneOrder model
+                contigs = displayContigs model
+                genes = GenomeMap.geneOrder contigs
                 currentIndex =
                     selectedGeneFromState model.geneSequence
                         |> Maybe.andThen (\sel -> indexOf (\g -> g.seqid == sel.seqid) genes)
@@ -346,7 +231,7 @@ update msg model =
             in
             case List.head (List.drop nextIndex genes) of
                 Just gene ->
-                    selectGene gene (scrollMapToGene gene model)
+                    selectGene gene { model | genomeMap = GenomeMap.scrollToGene contigs gene model.genomeMap }
                 Nothing ->
                     ( model, Effect.none )
 
@@ -374,11 +259,12 @@ update msg model =
                     ( model, Effect.none )
 
         GeneClicked gene ->
-            if model.genomeMapDrag == DragJustEnded then
-                -- This click ends a drag of the map, it is not a selection
-                ( { model | genomeMapDrag = NotDragging }, Effect.none )
-            else
-                selectGene gene model
+            case GenomeMap.consumeDragClick model.genomeMap of
+                Just genomeMap ->
+                    -- This click ends a drag of the map, it is not a selection
+                    ( { model | genomeMap = genomeMap }, Effect.none )
+                Nothing ->
+                    selectGene gene model
 
         GeneSequenceReceived value ->
             let
@@ -441,10 +327,6 @@ update msg model =
         SetGeneFilter filter ->
             ( { model | geneFilter = filter }, Effect.none )
 
-        _ ->
-            ( model
-            , Effect.none
-            )
 
 
 selectGene : EMapperGene -> Model -> ( Model, Effect Msg )
@@ -480,63 +362,6 @@ indexOf pred xs =
         |> Maybe.map Tuple.first
 
 
-{-| The map offset runs from 0 (view at the left end) to 1 (view at the right
-end), so the genome fraction where the view starts is `offset * (1 - 1/zoom)`.
-These two convert between the offset and that starting fraction.
--}
-viewStartFromOffset : Float -> Float -> Float
-viewStartFromOffset zoom offset =
-    offset * (1 - 1 / zoom)
-
-
-offsetFromViewStart : Float -> Float -> Float
-offsetFromViewStart zoom viewStart =
-    if zoom <= 1 then
-        0
-    else
-        Basics.clamp 0 1 (viewStart / (1 - 1 / zoom))
-
-
-{-| Move the view by a fraction of its own width (negative is leftwards).
--}
-panOffset : Float -> Float -> Float -> Float
-panOffset zoom offset viewFractions =
-    offsetFromViewStart zoom (viewStartFromOffset zoom offset + viewFractions / zoom)
-
-
-{-| Zoom by `factor`, keeping the genome position at `anchor` (a fraction of
-the visible width, 0 = left edge) under the same point of the view.
--}
-zoomMapAround : Float -> Float -> Model -> Model
-zoomMapAround factor anchor model =
-    let
-        zoom = model.genomeMapZoom
-        newZoom = Basics.clamp 1 genomeMapMaxZoom (zoom * factor)
-        anchorPos = viewStartFromOffset zoom model.genomeMapOffset + anchor / zoom
-    in
-    { model
-        | genomeMapZoom = newZoom
-        , genomeMapOffset = offsetFromViewStart newZoom (anchorPos - anchor / newZoom)
-    }
-
-
-{-| If the gene is outside the visible part of the map, centre the view on it.
--}
-scrollMapToGene : EMapperGene -> Model -> Model
-scrollMapToGene gene model =
-    let
-        zoom = model.genomeMapZoom
-        globalMax = toFloat (genomeMapMaxPos (genomeMapContigs model))
-        viewStart = viewStartFromOffset zoom model.genomeMapOffset
-        geneStart = toFloat gene.start / globalMax
-        geneEnd = toFloat gene.end / globalMax
-    in
-    if zoom <= 1 || (geneStart >= viewStart && geneEnd <= viewStart + 1 / zoom) then
-        model
-    else
-        { model | genomeMapOffset = offsetFromViewStart zoom ((geneStart + geneEnd) / 2 - 0.5 / zoom) }
-
-
 view :
     Shared.Model
     -> Route { genome : String }
@@ -556,16 +381,6 @@ view sm route model =
                 [ Html.text "Back to genomes" ]
             ]
         }
-
-showWithCommas : Int -> String
-showWithCommas n =
-    let
-        addCommas s =
-            if String.length s <= 3
-                then s
-            else (addCommas (String.slice 0 (String.length s - 3) s)) ++ "," ++ String.slice (String.length s - 3) (String.length s) s
-    in
-        addCommas (String.fromInt n)
 
 basicTR title value =
     Table.tr []
@@ -929,33 +744,25 @@ loadedRRnaGenes model =
         RRnaLoaded genes -> genes
         _ -> []
 
-
-{-| All contigs drawn on the map (before the gene filter is applied).
+{-| All contigs drawn on the map, with only the genes that pass the filter.
 -}
-genomeMapContigs : Model -> List ContigInfo
-genomeMapContigs model =
+displayContigs : Model -> List ContigInfo
+displayContigs model =
     case model.emapperData of
         EMapperLoaded proteinGenes ->
-            groupByContig (proteinGenes ++ loadedRRnaGenes model)
+            GenomeMap.groupByContig (proteinGenes ++ loadedRRnaGenes model)
+                |> List.map (\c -> { c | genes = filterGenes model.geneFilter c.genes })
         _ ->
             []
 
 
-genomeMapMaxPos : List ContigInfo -> Int
-genomeMapMaxPos contigs =
-    contigs
-        |> List.map .maxPos
-        |> List.maximum
-        |> Maybe.withDefault 1
-
-
-{-| The genes currently shown on the map, in reading order: contig by contig
-(top to bottom), then by position. Used for keyboard navigation.
--}
-genomeMapGeneOrder : Model -> List EMapperGene
-genomeMapGeneOrder model =
-    genomeMapContigs model
-        |> List.concatMap (\c -> List.sortBy .start (filterGenes model.geneFilter c.genes))
+genomeMapConfig : GenomeMap.Config Msg
+genomeMapConfig =
+    { toMsg = GenomeMapMsg
+    , onGeneClick = GeneClicked
+    , onSelectAdjacent = SelectAdjacentGene
+    , onClose = CloseGeneDetail
+    }
 
 
 showGenomeMap : Model -> Html.Html Msg
@@ -969,21 +776,18 @@ showGenomeMap model =
             let
                 rRnaGenes = loadedRRnaGenes model
                 allGenes = proteinGenes ++ rRnaGenes
-                allContigs = genomeMapContigs model
-                globalMax = genomeMapMaxPos allContigs
-                displayContigs = allContigs
-                    |> List.map (\c -> { c | genes = filterGenes model.geneFilter c.genes })
+                contigs = displayContigs model
                 displayGenes = filterGenes model.geneFilter allGenes
                 selectedGene = selectedGeneFromState model.geneSequence
             in
             Html.div []
-                [ genomeMapControls model globalMax
+                [ GenomeMap.viewControls genomeMapConfig model.genomeMap contigs
                 , geneFilterControls model.geneFilter (not (List.isEmpty rRnaGenes))
-                , renderGenomeMap model selectedGene globalMax displayContigs
-                , genomeMapHelp
+                , GenomeMap.view genomeMapConfig model.genomeMap selectedGene contigs
+                , GenomeMap.viewHelp
                 , renderGeneDetail model.showDnaSequence allGenes model.geneSequence
-                , renderGeneLegend model.geneFilter displayGenes
-                , renderCogSummary proteinGenes
+                , GenomeMap.viewLegend displayGenes
+                , Cog.viewSummary proteinGenes
                 , Html.div [ HtmlAttr.style "margin-top" "1em" ]
                     [ Html.button
                         [ HE.onClick ToggleGeneTable
@@ -1023,127 +827,6 @@ showGenomeMap model =
                 ]
 
 
-genomeMapControls : Model -> Int -> Html.Html Msg
-genomeMapControls model globalMax =
-    let
-        zoom = model.genomeMapZoom
-        offset = model.genomeMapOffset
-        viewFraction = 1 / zoom
-        viewStartFrac = offset * (1 - viewFraction)
-        viewStartBp = round (viewStartFrac * toFloat globalMax)
-        viewEndBp = Basics.min globalMax (round ((viewStartFrac + viewFraction) * toFloat globalMax))
-        posLabel =
-            if zoom > 1 then
-                showWithCommas viewStartBp ++ " - " ++ showWithCommas viewEndBp ++ " bp"
-            else
-                ""
-    in
-    Html.div
-        [ HtmlAttr.style "display" "flex"
-        , HtmlAttr.style "align-items" "center"
-        , HtmlAttr.style "gap" "0.25em"
-        , HtmlAttr.style "margin-bottom" "0.5em"
-        ]
-        [ Html.div
-            [ HtmlAttr.style "display" "inline-flex"
-            , HtmlAttr.style "border" "1px solid #ccc"
-            , HtmlAttr.style "border-radius" "4px"
-            , HtmlAttr.style "overflow" "hidden"
-            ]
-            [ mapButtonDual GenomeMapScrollLeft (zoom > 1 && offset > 0) "Scroll left" "\u{25C0}" "\u{2039}"
-            , mapButtonSep
-            , mapButton GenomeMapZoomOut (zoom > 1) "Zoom out" "\u{2212}"
-            , mapButtonSep
-            , Html.span
-                [ HtmlAttr.style "padding" "0.3em 0.6em"
-                , HtmlAttr.style "font-size" "0.85em"
-                , HtmlAttr.style "color" "#555"
-                , HtmlAttr.style "background" "#fafafa"
-                , HtmlAttr.style "min-width" "3em"
-                , HtmlAttr.style "text-align" "center"
-                , HtmlAttr.style "user-select" "none"
-                ]
-                [ Html.text (String.fromInt (round zoom) ++ "x") ]
-            , mapButtonSep
-            , mapButton GenomeMapZoomIn (zoom < genomeMapMaxZoom) "Zoom in" "+"
-            , mapButtonSep
-            , mapButtonDual GenomeMapScrollRight (zoom > 1 && offset < 1) "Scroll right" "\u{25B6}" "\u{203A}"
-            ]
-        , if zoom /= 1.0 then
-            Html.button
-                [ HE.onClick GenomeMapZoomReset
-                , HtmlAttr.style "padding" "0.3em 0.7em"
-                , HtmlAttr.style "font-size" "0.85em"
-                , HtmlAttr.style "cursor" "pointer"
-                , HtmlAttr.style "border" "1px solid #ccc"
-                , HtmlAttr.style "border-radius" "4px"
-                , HtmlAttr.style "background" "#fff"
-                , HtmlAttr.style "color" "#555"
-                , HtmlAttr.style "margin-left" "0.25em"
-                ]
-                [ Html.text "Reset" ]
-          else
-            Html.text ""
-        , if String.isEmpty posLabel then
-            Html.text ""
-          else
-            Html.span
-                [ HtmlAttr.style "font-size" "0.85em"
-                , HtmlAttr.style "color" "#666"
-                , HtmlAttr.style "margin-left" "0.5em"
-                , HtmlAttr.attribute "aria-live" "polite"
-                ]
-                [ Html.text posLabel ]
-        ]
-
-
-mapButton : Msg -> Bool -> String -> String -> Html.Html Msg
-mapButton msg enabled description label =
-    Html.button
-        [ HE.onClick msg
-        , HtmlAttr.title description
-        , HtmlAttr.attribute "aria-label" description
-        , HtmlAttr.disabled (not enabled)
-        , HtmlAttr.style "padding" "0.3em 0.7em"
-        , HtmlAttr.style "font-size" "0.9em"
-        , HtmlAttr.style "cursor" (if enabled then "pointer" else "default")
-        , HtmlAttr.style "border" "none"
-        , HtmlAttr.style "background" (if enabled then "#fff" else "#f5f5f5")
-        , HtmlAttr.style "color" (if enabled then "#333" else "#bbb")
-        , HtmlAttr.style "min-width" "2em"
-        , HtmlAttr.style "transition" "background 0.15s"
-        ]
-        [ Html.text label ]
-
-
-mapButtonDual : Msg -> Bool -> String -> String -> String -> Html.Html Msg
-mapButtonDual msg enabled description enabledLabel disabledLabel =
-    Html.button
-        [ HE.onClick msg
-        , HtmlAttr.title description
-        , HtmlAttr.attribute "aria-label" description
-        , HtmlAttr.disabled (not enabled)
-        , HtmlAttr.style "padding" "0.3em 0.7em"
-        , HtmlAttr.style "font-size" "0.9em"
-        , HtmlAttr.style "cursor" (if enabled then "pointer" else "default")
-        , HtmlAttr.style "border" "none"
-        , HtmlAttr.style "background" (if enabled then "#fff" else "#f5f5f5")
-        , HtmlAttr.style "color" (if enabled then "#333" else "#bbb")
-        , HtmlAttr.style "min-width" "2em"
-        , HtmlAttr.style "transition" "background 0.15s"
-        ]
-        [ Html.text (if enabled then enabledLabel else disabledLabel) ]
-
-
-mapButtonSep : Html.Html msg
-mapButtonSep =
-    Html.div
-        [ HtmlAttr.style "width" "1px"
-        , HtmlAttr.style "background" "#ddd"
-        , HtmlAttr.style "align-self" "stretch"
-        ]
-        []
-
 
 geneFilterControls : GeneDisplayFilter -> Bool -> Html.Html Msg
 geneFilterControls current hasRRna =
@@ -1161,20 +844,12 @@ geneFilterControls current hasRRna =
                 , HtmlAttr.style "color" "#555"
                 ]
                 [ Html.text "Show:" ]
-            , Html.div
-                [ HtmlAttr.style "display" "inline-flex"
-                , HtmlAttr.style "border" "1px solid #ccc"
-                , HtmlAttr.style "border-radius" "4px"
-                , HtmlAttr.style "overflow" "hidden"
-                ]
+            , GenomeMap.buttonGroup
                 [ filterButton "All" ShowAll current
-                , mapButtonSep
                 , filterButton "Protein coding" ShowProteinCoding current
-                , mapButtonSep
                 , filterButton "rRNA" ShowRRna current
                 ]
             ]
-
 filterButton : String -> GeneDisplayFilter -> GeneDisplayFilter -> Html.Html Msg
 filterButton label filter current =
     Html.button
@@ -1190,578 +865,30 @@ filterButton label filter current =
         ]
         [ Html.text label ]
 
-type alias ContigInfo =
-    { name : String
-    , maxPos : Int
-    , genes : List EMapperGene
-    }
-
-
-groupByContig : List EMapperGene -> List ContigInfo
-groupByContig genes =
-    let
-        contigNames =
-            genes
-                |> List.map .contig
-                |> List.foldl (\c acc -> if List.member c acc then acc else acc ++ [c]) []
-    in
-    contigNames
-        |> List.map (\cname ->
-            let
-                cGenes = List.filter (\g -> g.contig == cname) genes
-                maxP = cGenes
-                    |> List.map .end
-                    |> List.maximum
-                    |> Maybe.withDefault 0
-            in
-            { name = cname, maxPos = maxP, genes = cGenes }
-        )
-        |> List.sortBy (\c -> negate c.maxPos)
-
-
-genomeMapLayout :
-    { labelWidth : Float
-    , mapWidth : Float
-    , rowHeight : Int
-    , rowSpacing : Int
-    }
-genomeMapLayout =
-    { labelWidth = 120
-    , mapWidth = 970
-    , rowHeight = 40
-    , rowSpacing = 8
-    }
-
-
-genomeMapMaxZoom : Float
-genomeMapMaxZoom =
-    50
-
-
-genomeMapSvgId : String
-genomeMapSvgId =
-    "genome-map-svg"
-
-
-{-| Where `pageX` falls within the drawn map, as a fraction of its width.
-The SVG keeps its aspect ratio, so on screens wider than the map it is drawn
-centred inside a larger element.
--}
-mapPointerFraction : Browser.Dom.Element -> Float -> Float
-mapPointerFraction el pageX =
-    let
-        width = el.element.width
-        drawnWidth = Basics.min width genomeMapLayout.mapWidth
-        left = el.element.x + (width - drawnWidth) / 2
-    in
-    if drawnWidth <= 0 then
-        0.5
-    else
-        Basics.clamp 0 1 ((pageX - left) / drawnWidth)
-
-
-{-| Ctrl/Cmd + wheel (which is also what trackpad pinches send) zooms around
-the pointer; horizontal or Shift + wheel pans. A plain vertical wheel is left
-alone so that it still scrolls the page.
--}
-genomeMapWheelDecoder : Float -> D.Decoder ( Msg, Bool )
-genomeMapWheelDecoder zoom =
-    let
-        toPixels mode delta =
-            case mode of
-                1 -> delta * 16
-                2 -> delta * 800
-                _ -> delta
-
-        fromEvent dx dy mode zoomKey shift pageX =
-            let
-                pxX = toPixels mode dx
-                pxY = toPixels mode dy
-                horizontal =
-                    if shift && pxX == 0 then pxY
-                    else if abs pxX > abs pxY then pxX
-                    else 0
-            in
-            if zoomKey then
-                D.succeed ( GenomeMapWheelZoom (Basics.clamp 0.5 2 (e ^ (-pxY * 0.005))) pageX, True )
-            else if zoom > 1 && horizontal /= 0 then
-                D.succeed ( GenomeMapWheelPan horizontal, True )
-            else
-                D.fail "not a map gesture"
-    in
-    D.map6 fromEvent
-        (D.field "deltaX" D.float)
-        (D.field "deltaY" D.float)
-        (D.field "deltaMode" D.int)
-        (D.map2 (||) (D.field "ctrlKey" D.bool) (D.field "metaKey" D.bool))
-        (D.field "shiftKey" D.bool)
-        (D.field "pageX" D.float)
-        |> D.andThen identity
-
-
-genomeMapKeyDecoder : D.Decoder ( Msg, Bool )
-genomeMapKeyDecoder =
-    let
-        fromKey key modified =
-            if modified then
-                -- Leave Ctrl/Cmd/Alt shortcuts (e.g. browser zoom) alone
-                D.fail "modified key"
-            else
-                case key of
-                    "ArrowLeft" -> D.succeed GenomeMapScrollLeft
-                    "ArrowRight" -> D.succeed GenomeMapScrollRight
-                    "+" -> D.succeed GenomeMapZoomIn
-                    "=" -> D.succeed GenomeMapZoomIn
-                    "-" -> D.succeed GenomeMapZoomOut
-                    "0" -> D.succeed GenomeMapZoomReset
-                    "n" -> D.succeed (SelectAdjacentGene 1)
-                    "p" -> D.succeed (SelectAdjacentGene (-1))
-                    "Escape" -> D.succeed CloseGeneDetail
-                    _ -> D.fail "not a map key"
-    in
-    D.map2 fromKey
-        (D.field "key" D.string)
-        (D.map3 (\c m a -> c || m || a)
-            (D.field "ctrlKey" D.bool)
-            (D.field "metaKey" D.bool)
-            (D.field "altKey" D.bool)
-        )
-        |> D.andThen identity
-        |> D.map (\msg -> ( msg, True ))
-
-
-genomeMapMouseDownDecoder : D.Decoder Msg
-genomeMapMouseDownDecoder =
-    D.field "button" D.int
-        |> D.andThen (\button ->
-            if button == 0 then
-                D.map GenomeMapDragStart (D.field "pageX" D.float)
-            else
-                D.fail "not the main button"
-        )
-
-
-genomeMapHelp : Html.Html msg
-genomeMapHelp =
-    Html.p
-        [ HtmlAttr.id "genome-map-help"
-        , HtmlAttr.style "font-size" "0.8em"
-        , HtmlAttr.style "color" "#777"
-        , HtmlAttr.style "margin" "0.3em 0 0"
-        ]
-        [ Html.text "Drag to pan, Ctrl + scroll or pinch to zoom. Keyboard (click the map first): "
-        , Html.text "\u{2190} \u{2192} pan, + \u{2212} zoom, 0 reset, n / p next / previous gene, Esc close gene details."
-        ]
-
-
-renderGenomeMap : Model -> Maybe EMapperGene -> Int -> List ContigInfo -> Html.Html Msg
-renderGenomeMap model selectedGene globalMax contigs =
-    let
-        zoom = model.genomeMapZoom
-        offset = model.genomeMapOffset
-        lay = genomeMapLayout
-        mapCursor =
-            case model.genomeMapDrag of
-                Dragging _ -> "grabbing"
-                _ -> if zoom > 1 then "grab" else "default"
-        svgHeight = List.length contigs * (lay.rowHeight + lay.rowSpacing) + 10
-        -- Virtual width of the full zoomed map
-        virtualWidth = lay.mapWidth * zoom
-        -- viewBox: we see mapWidth worth of virtual coords, offset into the virtual space
-        vbX = offset * (virtualWidth - lay.mapWidth)
-        -- Scale maps genome position to virtual x coordinate (0 .. virtualWidth)
-        scale pos = toFloat pos / toFloat globalMax * virtualWidth
-        -- Show arrows only when the visible region is small enough
-        visibleBp = toFloat globalMax / zoom
-        useArrows = visibleBp < 500000
-    in
-    Html.div []
-        [ Html.div
-            [ HtmlAttr.class "genome-map"
-            , HtmlAttr.tabindex 0
-            , HtmlAttr.attribute "role" "group"
-            , HtmlAttr.attribute "aria-label" "Genome map"
-            , HtmlAttr.attribute "aria-describedby" "genome-map-help"
-            , HE.preventDefaultOn "keydown" genomeMapKeyDecoder
-            , HtmlAttr.style "display" "flex"
-            , HtmlAttr.style "border" "1px solid #ddd"
-            , HtmlAttr.style "user-select" "none"
-            ]
-            [ -- Fixed labels column
-              Svg.svg
-                [ SvgAttr.width (String.fromFloat lay.labelWidth)
-                , SvgAttr.height (String.fromInt svgHeight)
-                , SvgAttr.viewBox ("0 0 " ++ String.fromFloat lay.labelWidth ++ " " ++ String.fromInt svgHeight)
-                , SvgAttr.style "font-family: sans-serif; font-size: 11px; flex-shrink: 0;"
-                ]
-                (contigs
-                    |> List.indexedMap (\i contig ->
-                        let
-                            y = toFloat (i * (lay.rowHeight + lay.rowSpacing)) + 5
-                            cy = y + toFloat lay.rowHeight / 2
-                        in
-                        Svg.text_
-                            [ SvgAttr.x "5"
-                            , SvgAttr.y (String.fromFloat (cy + 4))
-                            , SvgAttr.fill "#333"
-                            ]
-                            [ Svg.text contig.name ]
-                    )
-                )
-            , -- Scrollable map area
-              Svg.svg
-                [ SvgAttr.width (String.fromFloat lay.mapWidth)
-                , SvgAttr.height (String.fromInt svgHeight)
-                , SvgAttr.viewBox
-                    (String.fromFloat vbX
-                        ++ " 0 "
-                        ++ String.fromFloat lay.mapWidth
-                        ++ " " ++ String.fromInt svgHeight
-                    )
-                , SvgAttr.style ("font-family: sans-serif; font-size: 11px; flex-grow: 1; cursor: " ++ mapCursor ++ ";")
-                , SvgAttr.id genomeMapSvgId
-                , HE.preventDefaultOn "wheel" (genomeMapWheelDecoder zoom)
-                , HE.on "mousedown" genomeMapMouseDownDecoder
-                ]
-                (contigs
-                    |> List.indexedMap (\i contig ->
-                        let
-                            y = toFloat (i * (lay.rowHeight + lay.rowSpacing)) + 5
-                            cy = y + toFloat lay.rowHeight / 2
-                        in
-                        Svg.g []
-                            ([ Svg.line
-                                [ SvgAttr.x1 (String.fromFloat (scale 0))
-                                , SvgAttr.y1 (String.fromFloat cy)
-                                , SvgAttr.x2 (String.fromFloat (scale contig.maxPos))
-                                , SvgAttr.y2 (String.fromFloat cy)
-                                , SvgAttr.stroke "black"
-                                , SvgAttr.strokeWidth "3"
-                                ]
-                                []
-                            ]
-                            ++ List.map (\gene -> renderGeneArrow useArrows scale cy selectedGene gene) contig.genes
-                            )
-                    )
-                )
-            ]
-        , renderOverviewBar zoom offset contigs globalMax
-        ]
-
-
-renderOverviewBar : Float -> Float -> List ContigInfo -> Int -> Html.Html Msg
-renderOverviewBar zoom offset contigs globalMax =
-    let
-        lay = genomeMapLayout
-        barWidth = lay.mapWidth
-        barHeight = 6 * toFloat (List.length contigs) + 4
-        viewFraction = 1 / zoom
-        viewStart = offset * (1 - viewFraction)
-        rectX = lay.labelWidth + viewStart * barWidth
-        rectW = Basics.max 4 (viewFraction * barWidth)
-    in
-    if zoom <= 1 then
-        Html.text ""
-    else
-        Html.div
-            [ HtmlAttr.style "display" "flex" ]
-            [ Html.div
-                [ HtmlAttr.style "width" (String.fromFloat lay.labelWidth ++ "px")
-                , HtmlAttr.style "flex-shrink" "0"
-                ]
-                []
-            , Svg.svg
-                [ SvgAttr.width (String.fromFloat barWidth)
-                , SvgAttr.height (String.fromFloat barHeight)
-                , SvgAttr.style "display: block; margin-top: 2px;"
-                ]
-                (List.indexedMap
-                    (\i contig ->
-                        let
-                            cy = toFloat i * 6 + 5
-                            cWidth = toFloat contig.maxPos / toFloat globalMax * barWidth
-                        in
-                        Svg.line
-                            [ SvgAttr.x1 "0"
-                            , SvgAttr.y1 (String.fromFloat cy)
-                            , SvgAttr.x2 (String.fromFloat cWidth)
-                            , SvgAttr.y2 (String.fromFloat cy)
-                            , SvgAttr.stroke "#bbb"
-                            , SvgAttr.strokeWidth "3"
-                            ]
-                            []
-                    )
-                    contigs
-                    ++ [ Svg.rect
-                            [ SvgAttr.x (String.fromFloat (viewStart * barWidth))
-                            , SvgAttr.y "0"
-                            , SvgAttr.width (String.fromFloat rectW)
-                            , SvgAttr.height (String.fromFloat barHeight)
-                            , SvgAttr.fill "rgba(66, 133, 244, 0.3)"
-                            , SvgAttr.stroke "#4285f4"
-                            , SvgAttr.strokeWidth "1"
-                            , SvgAttr.rx "2"
-                            ]
-                            []
-                       ]
-                )
-            ]
-
-
-geneColor : EMapperGene -> String
-geneColor gene =
-    case gene.geneType of
-        RRna rtype -> rRnaColor rtype
-        ProteinCoding -> cogColor (String.left 1 gene.cogCategory)
-
-rRnaColor : String -> String
-rRnaColor rtype =
-    case rtype of
-        "16S_rRNA" -> "#d50000"
-        "23S_rRNA" -> "#2962ff"
-        "5S_rRNA" -> "#00c853"
-        _ -> "#d50000"
-
-renderGeneArrow : Bool -> (Int -> Float) -> Float -> Maybe EMapperGene -> EMapperGene -> Svg.Svg Msg
-renderGeneArrow useArrows scale cy selectedGene gene =
-    let
-        x1 = scale gene.start
-        x2 = scale gene.end
-        geneWidth = x2 - x1
-        halfHeight = 8
-        color = geneColor gene
-        tooltipText =
-            (if String.isEmpty gene.preferredName then gene.seqid else gene.preferredName)
-                ++ " [" ++ (if String.isEmpty gene.cogCategory then "-" else gene.cogCategory) ++ "]"
-        isSelected = case selectedGene of
-            Just sel -> sel.seqid == gene.seqid
-            Nothing -> False
-        strokeColor = if isSelected then "#000" else if useArrows then "#333" else color
-        strokeW = if isSelected then "2" else if useArrows then "0.5" else "0.3"
-        clickHandler = SvgEvents.onClick (GeneClicked gene)
-        cursorStyle = SvgAttr.style "cursor: pointer;"
-        ariaAttrs =
-            [ HtmlAttr.attribute "role" "button"
-            , HtmlAttr.attribute "aria-label" (geneAccessibleLabel gene)
-            , HtmlAttr.attribute "aria-pressed" (if isSelected then "true" else "false")
-            ]
-    in
-    if not useArrows then
-        Svg.rect
-            ([ SvgAttr.x (String.fromFloat x1)
-            , SvgAttr.y (String.fromFloat (cy - halfHeight))
-            , SvgAttr.width (String.fromFloat (Basics.max 1 geneWidth))
-            , SvgAttr.height (String.fromFloat (halfHeight * 2))
-            , SvgAttr.fill color
-            , SvgAttr.stroke strokeColor
-            , SvgAttr.strokeWidth strokeW
-            , clickHandler
-            , cursorStyle
-            ]
-            ++ ariaAttrs
-            )
-            [ Svg.title [] [ Svg.text tooltipText ]
-            ]
-    else
-        let
-            arrowHeadSize = Basics.min 6 (geneWidth * 0.3)
-            points =
-                if gene.strand == "+" then
-                    String.join " "
-                        [ p x1 (cy - halfHeight)
-                        , p (x2 - arrowHeadSize) (cy - halfHeight)
-                        , p x2 cy
-                        , p (x2 - arrowHeadSize) (cy + halfHeight)
-                        , p x1 (cy + halfHeight)
-                        ]
-                else
-                    String.join " "
-                        [ p (x1 + arrowHeadSize) (cy - halfHeight)
-                        , p x2 (cy - halfHeight)
-                        , p x2 (cy + halfHeight)
-                        , p (x1 + arrowHeadSize) (cy + halfHeight)
-                        , p x1 cy
-                        ]
-        in
-        Svg.polygon
-            ([ SvgAttr.points points
-            , SvgAttr.fill color
-            , SvgAttr.stroke strokeColor
-            , SvgAttr.strokeWidth strokeW
-            , clickHandler
-            , cursorStyle
-            ]
-            ++ ariaAttrs
-            )
-            [ Svg.title [] [ Svg.text tooltipText ]
-            ]
-
-
-{-| Screen-reader description of a gene arrow, e.g.
-"dnaA, COG L (Replication, recombination and repair), contig_1 1,200 to 2,550 bp, plus strand".
--}
-geneAccessibleLabel : EMapperGene -> String
-geneAccessibleLabel gene =
-    let
-        name = if String.isEmpty gene.preferredName then gene.seqid else gene.preferredName
-        kind =
-            case gene.geneType of
-                RRna rtype ->
-                    String.replace "_" " " rtype
-                ProteinCoding ->
-                    if String.isEmpty gene.cogCategory then
-                        "no COG category"
-                    else
-                        "COG " ++ gene.cogCategory ++ " (" ++ cogDescription (String.left 1 gene.cogCategory) ++ ")"
-        strand = if gene.strand == "+" then "plus strand" else "minus strand"
-    in
-    String.join ", "
-        [ name
-        , kind
-        , gene.contig ++ " " ++ showWithCommas gene.start ++ " to " ++ showWithCommas gene.end ++ " bp"
-        , strand
-        ]
-
-
-p : Float -> Float -> String
-p x y =
-    String.fromFloat x ++ "," ++ String.fromFloat y
-
-
-cogColor : String -> String
-cogColor cat =
-    case cat of
-        "J" -> "#f06292"   -- Translation
-        "A" -> "#e91e63"   -- RNA processing
-        "K" -> "#ab47bc"   -- Transcription
-        "L" -> "#7e57c2"   -- Replication/repair
-        "B" -> "#5c6bc0"   -- Chromatin
-        "D" -> "#66bb6a"   -- Cell cycle
-        "Y" -> "#a5d6a7"   -- Nuclear structure
-        "V" -> "#43a047"   -- Defense
-        "T" -> "#ff9800"   -- Signal transduction
-        "M" -> "#8bc34a"   -- Cell wall
-        "N" -> "#00acc1"   -- Cell motility
-        "U" -> "#26c6da"   -- Secretion
-        "O" -> "#ec407a"   -- Post-translational modification
-        "C" -> "#42a5f5"   -- Energy
-        "G" -> "#fdd835"   -- Carbohydrate
-        "E" -> "#ffb74d"   -- Amino acid
-        "F" -> "#9575cd"   -- Nucleotide
-        "H" -> "#64b5f6"   -- Coenzyme
-        "I" -> "#a1887f"   -- Lipid
-        "P" -> "#4db6ac"   -- Inorganic ion
-        "Q" -> "#ff7043"   -- Secondary metabolites
-        "R" -> "#bdbdbd"   -- General function
-        "S" -> "#e0e0e0"   -- Function unknown
-        "" -> "#f5f5f5"    -- No COG
-        _ -> "#cccccc"
-
-
-cogDescription : String -> String
-cogDescription cat =
-    case cat of
-        "J" -> "Translation, ribosomal structure"
-        "A" -> "RNA processing and modification"
-        "K" -> "Transcription"
-        "L" -> "Replication, recombination and repair"
-        "B" -> "Chromatin structure"
-        "D" -> "Cell cycle control, cell division"
-        "Y" -> "Nuclear structure"
-        "V" -> "Defense mechanisms"
-        "T" -> "Signal transduction"
-        "M" -> "Cell wall/membrane biogenesis"
-        "N" -> "Cell motility"
-        "U" -> "Intracellular trafficking, secretion"
-        "O" -> "Post-translational modification"
-        "C" -> "Energy production and conversion"
-        "G" -> "Carbohydrate transport and metabolism"
-        "E" -> "Amino acid transport and metabolism"
-        "F" -> "Nucleotide transport and metabolism"
-        "H" -> "Coenzyme transport and metabolism"
-        "I" -> "Lipid transport and metabolism"
-        "P" -> "Inorganic ion transport and metabolism"
-        "Q" -> "Secondary metabolites"
-        "R" -> "General function prediction only"
-        "S" -> "Function unknown"
-        "" -> "No COG category"
-        _ -> cat
-
-
-renderLocalNeighborhood : EMapperGene -> List EMapperGene -> Html.Html Msg
-renderLocalNeighborhood gene allGenes =
-    let
-        flank = 10000
-        regionStart = Basics.max 0 (Basics.min gene.start gene.end - flank)
-        regionEnd = Basics.max gene.start gene.end + flank
-        -- Clamp to contig extent
-        contigGenes = List.filter (\g -> g.contig == gene.contig) allGenes
-        contigMax = contigGenes
-            |> List.map (\g -> Basics.max g.start g.end)
-            |> List.maximum
-            |> Maybe.withDefault regionEnd
-        clampedEnd = Basics.min regionEnd contigMax
-        clampedStart = Basics.max 0 regionStart
-        regionLen = toFloat (clampedEnd - clampedStart)
-        -- Genes overlapping the visible region
-        neighborGenes = contigGenes
-            |> List.filter (\g ->
-                let
-                    gMin = Basics.min g.start g.end
-                    gMax = Basics.max g.start g.end
-                in
-                gMax >= clampedStart && gMin <= clampedEnd
-            )
-        lay = genomeMapLayout
-        mapWidth = lay.mapWidth + lay.labelWidth
-        rowHeight = lay.rowHeight
-        cy = toFloat rowHeight / 2 + 5
-        scale pos = (toFloat pos - toFloat clampedStart) / regionLen * mapWidth
-    in
-    Html.div [ HtmlAttr.style "margin" "0.5em 0" ]
-        [ Html.h4 [ HtmlAttr.style "margin" "0.25em 0" ]
-            [ Html.text "Local neighborhood" ]
-        , Svg.svg
-            [ SvgAttr.width (String.fromFloat mapWidth)
-            , SvgAttr.height (String.fromInt (rowHeight + 10))
-            , SvgAttr.viewBox ("0 0 " ++ String.fromFloat mapWidth ++ " " ++ String.fromInt (rowHeight + 10))
-            , SvgAttr.style "font-family: sans-serif; font-size: 11px; display: block;"
-            ]
-            ([ Svg.line
-                [ SvgAttr.x1 (String.fromFloat (scale clampedStart))
-                , SvgAttr.y1 (String.fromFloat cy)
-                , SvgAttr.x2 (String.fromFloat (scale clampedEnd))
-                , SvgAttr.y2 (String.fromFloat cy)
-                , SvgAttr.stroke "black"
-                , SvgAttr.strokeWidth "3"
-                ]
-                []
-             ]
-             ++ List.map (\g -> renderGeneArrow True scale cy (Just gene) g) neighborGenes
-            )
-        ]
-
 
 renderGeneDetail : Bool -> List EMapperGene -> GeneSequenceState -> Html.Html Msg
 renderGeneDetail showDna allGenes state =
+    let
+        panel gene content =
+            Html.div [ HtmlAttr.class "gene-detail-panel" ]
+                ([ geneDetailHeader gene
+                 , GenomeMap.viewNeighborhood GeneClicked gene allGenes
+                 , geneAnnotationInfo gene
+                 ]
+                    ++ content
+                )
+    in
     case state of
         NoGeneSelected ->
             Html.text ""
 
         GeneSequenceLoading gene ->
-            Html.div [ HtmlAttr.class "gene-detail-panel" ]
-                [ geneDetailHeader gene
-                , renderLocalNeighborhood gene allGenes
-                , geneAnnotationInfo gene
-                , Html.p [] [ Html.text "Loading sequence..." ]
-                ]
+            panel gene
+                [ Html.p [] [ Html.text "Loading sequence..." ] ]
 
         GeneSequenceError gene errMsg ->
-            Html.div [ HtmlAttr.class "gene-detail-panel" ]
-                [ geneDetailHeader gene
-                , renderLocalNeighborhood gene allGenes
-                , geneAnnotationInfo gene
-                , Html.p [ HtmlAttr.style "color" "#c00" ]
+            panel gene
+                [ Html.p [ HtmlAttr.style "color" "#c00" ]
                     [ Html.text ("Error: " ++ errMsg) ]
                 ]
 
@@ -1771,11 +898,8 @@ renderGeneDetail showDna allGenes state =
                     RRna _ -> True
                     ProteinCoding -> False
             in
-            Html.div [ HtmlAttr.class "gene-detail-panel" ]
-                [ geneDetailHeader gene
-                , renderLocalNeighborhood gene allGenes
-                , geneAnnotationInfo gene
-                , Html.div []
+            panel gene
+                [ Html.div []
                     (( if isRRna then
                         []
                       else
@@ -1883,7 +1007,7 @@ aaLegend =
         , HtmlAttr.style "font-size" "0.8em"
         , HtmlAttr.style "margin-top" "0.3em"
         ]
-        (List.map aaLegendItem
+        (List.map (\( color, label ) -> legendItem color label)
             [ ("#f9e79f", "Nonpolar (G, A, V, L, I, P, F, M, W)")
             , ("#abebc6", "Polar (S, T, C, Y, N, Q)")
             , ("#aed6f1", "Positive (K, R, H)")
@@ -1891,25 +1015,6 @@ aaLegend =
             , ("#d5d8dc", "Stop (*)")
             ]
         )
-
-
-aaLegendItem : (String, String) -> Html.Html msg
-aaLegendItem (color, label) =
-    Html.span
-        [ HtmlAttr.style "display" "inline-flex"
-        , HtmlAttr.style "align-items" "center"
-        , HtmlAttr.style "gap" "0.3em"
-        ]
-        [ Html.span
-            [ HtmlAttr.style "display" "inline-block"
-            , HtmlAttr.style "width" "14px"
-            , HtmlAttr.style "height" "14px"
-            , HtmlAttr.style "background-color" color
-            , HtmlAttr.style "border" "1px solid #999"
-            ]
-            []
-        , Html.text label
-        ]
 
 
 geneAnnotationInfo : EMapperGene -> Html.Html Msg
@@ -1930,7 +1035,7 @@ geneAnnotationInfo gene =
             case gene.geneType of
                 RRna rtype ->
                     [ row "Type"
-                        [ Html.span [ HtmlAttr.style "color" (rRnaColor rtype) ]
+                        [ Html.span [ HtmlAttr.style "color" (GenomeMap.rRnaColor rtype) ]
                             [ Html.text (String.replace "_" " " rtype) ]
                         ]
                     ]
@@ -1941,7 +1046,7 @@ geneAnnotationInfo gene =
                 []
             else
                 [ row "COG category"
-                    [ Html.text (gene.cogCategory ++ " — " ++ cogDescription (String.left 1 gene.cogCategory)) ]
+                    [ Html.text (gene.cogCategory ++ " — " ++ Cog.description (Cog.primaryCategory gene)) ]
                 ]
         keggKoRow =
             if List.isEmpty gene.keggKo then
@@ -2070,7 +1175,7 @@ renderGeneTable genes =
                         , Html.td []
                             [ case gene.geneType of
                                 ProteinCoding -> Html.text "CDS"
-                                RRna rtype -> Html.span [ HtmlAttr.style "color" (rRnaColor rtype) ] [ Html.text "rRNA" ]
+                                RRna rtype -> Html.span [ HtmlAttr.style "color" (GenomeMap.rRnaColor rtype) ] [ Html.text "rRNA" ]
                             ]
                         , Html.td [] [ Html.text gene.contig ]
                         , Html.td [ HtmlAttr.style "text-align" "right" ] [ Html.text (showWithCommas gene.start) ]
@@ -2085,7 +1190,7 @@ renderGeneTable genes =
                                 )
                             ]
                         , Html.td []
-                            [ Html.span [ HtmlAttr.style "color" (cogColor (String.left 1 gene.cogCategory)) ]
+                            [ Html.span [ HtmlAttr.style "color" (Cog.color (Cog.primaryCategory gene)) ]
                                 [ Html.text
                                     (if String.isEmpty gene.cogCategory
                                         then "-"
@@ -2112,332 +1217,3 @@ renderGeneTable genes =
             ]
         ]
 
-
-type alias CogSummaryRow =
-    { category : String
-    , count : Int
-    }
-
-
-renderCogSummary : List EMapperGene -> Html.Html Msg
-renderCogSummary genes =
-    let
-        proteinGenes =
-            genes
-                |> List.filter (\g -> g.geneType == ProteinCoding)
-
-        rows =
-            proteinGenes
-                |> cogCategoryCounts
-                |> cogCountsToRows
-
-        assignedRows =
-            rows
-                |> List.filter (\row -> not (String.isEmpty row.category))
-                |> List.sortBy (\row -> 0 - row.count)
-
-        unassignedRows =
-            rows
-                |> List.filter (\row -> String.isEmpty row.category)
-
-        displayRows =
-            assignedRows ++ unassignedRows
-
-        assignedTotal =
-            assignedRows
-                |> List.map .count
-                |> List.sum
-
-        totalCds =
-            proteinGenes
-                |> List.length
-    in
-    if List.isEmpty proteinGenes then
-        Html.text ""
-
-    else
-        Html.div
-            [ HtmlAttr.style "margin-top" "1em"
-            , HtmlAttr.style "border-top" "1px solid #e5e7eb"
-            , HtmlAttr.style "padding-top" "1em"
-            ]
-            [ Html.h3
-                [ HtmlAttr.style "font-size" "1.1em"
-                , HtmlAttr.style "margin-bottom" "0.25em"
-                ]
-                [ Html.text "COG category summary" ]
-            , Html.p
-                [ HtmlAttr.style "font-size" "0.9em"
-                , HtmlAttr.style "color" "#555"
-                , HtmlAttr.style "margin-bottom" "0.75em"
-                ]
-                [ Html.text
-                    ("Primary COG class for "
-                        ++ showWithCommas assignedTotal
-                        ++ " annotated CDS"
-                    )
-                , if assignedTotal == totalCds then
-                    Html.text "."
-
-                  else
-                    Html.text
-                        ("; "
-                            ++ showWithCommas (totalCds - assignedTotal)
-                            ++ " CDS without a COG category."
-                        )
-                ]
-            , renderCogCompositionBar displayRows totalCds
-            , Html.div
-                [ HtmlAttr.style "max-width" "860px"
-                , HtmlAttr.style "overflow-x" "auto"
-                ]
-                [ Html.table
-                    [ HtmlAttr.class "table table-sm"
-                    , HtmlAttr.style "font-size" "0.9em"
-                    , HtmlAttr.style "margin-bottom" "0"
-                    ]
-                    [ Html.thead []
-                        [ Html.tr []
-                            [ Html.th [] [ Html.text "COG cat." ]
-                            , Html.th [] [ Html.text "Description" ]
-                            , Html.th [ HtmlAttr.style "text-align" "right" ] [ Html.text "CDS count" ]
-                            , Html.th [] [ Html.text "Share" ]
-                            , Html.th [ HtmlAttr.style "text-align" "right" ] [ Html.text "% of annotated" ]
-                            ]
-                        ]
-                    , Html.tbody []
-                        (displayRows
-                            |> List.map (renderCogSummaryRow assignedTotal)
-                        )
-                    ]
-                ]
-            ]
-
-
-cogCategoryCounts : List EMapperGene -> Dict.Dict String Int
-cogCategoryCounts genes =
-    genes
-        |> List.foldl
-            (\gene acc ->
-                Dict.update
-                    (String.left 1 gene.cogCategory)
-                    (\count -> Just (Maybe.withDefault 0 count + 1))
-                    acc
-            )
-            Dict.empty
-
-
-cogCountsToRows : Dict.Dict String Int -> List CogSummaryRow
-cogCountsToRows counts =
-    counts
-        |> Dict.toList
-        |> List.map
-            (\( category, count ) ->
-                { category = category, count = count }
-            )
-
-
-renderCogCompositionBar : List CogSummaryRow -> Int -> Html.Html Msg
-renderCogCompositionBar rows totalCds =
-    if totalCds <= 0 then
-        Html.text ""
-
-    else
-        Html.div
-            [ HtmlAttr.style "display" "flex"
-            , HtmlAttr.style "height" "14px"
-            , HtmlAttr.style "max-width" "860px"
-            , HtmlAttr.style "margin-bottom" "0.75em"
-            , HtmlAttr.style "border" "1px solid #d8dee7"
-            , HtmlAttr.style "border-radius" "4px"
-            , HtmlAttr.style "overflow" "hidden"
-            ]
-            (rows
-                |> List.map
-                    (\row ->
-                        Html.div
-                            [ HtmlAttr.style "width" (percentWidth row.count totalCds)
-                            , HtmlAttr.style "background-color" (cogColor row.category)
-                            , HtmlAttr.title
-                                ((if String.isEmpty row.category then
-                                    "No COG category"
-
-                                  else
-                                    row.category ++ ": " ++ cogDescription row.category
-                                 )
-                                    ++ " ("
-                                    ++ showWithCommas row.count
-                                    ++ " CDS)"
-                                )
-                            ]
-                            []
-                    )
-            )
-
-
-renderCogSummaryRow : Int -> CogSummaryRow -> Html.Html Msg
-renderCogSummaryRow assignedTotal row =
-    let
-        label =
-            if String.isEmpty row.category then
-                "-"
-
-            else
-                row.category
-
-        pctText =
-            if String.isEmpty row.category then
-                "-"
-
-            else
-                percentageText row.count assignedTotal
-    in
-    Html.tr []
-        [ Html.td []
-            [ Html.span
-                [ HtmlAttr.style "display" "inline-flex"
-                , HtmlAttr.style "align-items" "center"
-                , HtmlAttr.style "gap" "0.45em"
-                ]
-                [ Html.span
-                    [ HtmlAttr.style "display" "inline-block"
-                    , HtmlAttr.style "width" "0.85em"
-                    , HtmlAttr.style "height" "0.85em"
-                    , HtmlAttr.style "border" "1px solid #8a94a3"
-                    , HtmlAttr.style "background-color" (cogColor row.category)
-                    ]
-                    []
-                , Html.text label
-                ]
-            ]
-        , Html.td [] [ Html.text (cogDescription row.category) ]
-        , Html.td [ HtmlAttr.style "text-align" "right" ] [ Html.text (showWithCommas row.count) ]
-        , Html.td []
-            [ Html.div
-                [ HtmlAttr.style "height" "0.6em"
-                , HtmlAttr.style "min-width" "90px"
-                , HtmlAttr.style "max-width" "180px"
-                , HtmlAttr.style "background-color" "#eef2f7"
-                , HtmlAttr.style "border-radius" "2px"
-                , HtmlAttr.style "overflow" "hidden"
-                ]
-                [ Html.div
-                    [ HtmlAttr.style "height" "100%"
-                    , HtmlAttr.style "width" (percentWidth row.count assignedTotal)
-                    , HtmlAttr.style "background-color" (cogColor row.category)
-                    ]
-                    []
-                ]
-            ]
-        , Html.td [ HtmlAttr.style "text-align" "right" ] [ Html.text pctText ]
-        ]
-
-
-percentageText : Int -> Int -> String
-percentageText count total =
-    if total <= 0 then
-        "-"
-
-    else
-        let
-            tenths =
-                round ((toFloat count * 1000) / toFloat total)
-
-            whole =
-                tenths // 10
-
-            decimal =
-                modBy 10 tenths
-        in
-        String.fromInt whole ++ "." ++ String.fromInt decimal ++ " %"
-
-
-percentWidth : Int -> Int -> String
-percentWidth count total =
-    if total <= 0 then
-        "0%"
-
-    else
-        String.fromFloat ((toFloat count * 100) / toFloat total) ++ "%"
-
-
-renderGeneLegend : GeneDisplayFilter -> List EMapperGene -> Html.Html Msg
-renderGeneLegend filter genes =
-    let
-        hasProtein = List.any (\g -> g.geneType == ProteinCoding) genes
-        hasRRna = List.any (\g -> g.geneType /= ProteinCoding) genes
-    in
-    Html.div []
-        [ if hasProtein then renderCogLegend genes else Html.text ""
-        , if hasRRna then renderRRnaLegend genes else Html.text ""
-        ]
-
-renderRRnaLegend : List EMapperGene -> Html.Html Msg
-renderRRnaLegend genes =
-    let
-        usedTypes =
-            genes
-                |> List.filterMap (\g -> case g.geneType of
-                    RRna rtype -> Just rtype
-                    ProteinCoding -> Nothing
-                )
-                |> List.foldl (\t acc -> if List.member t acc then acc else acc ++ [t]) []
-        allTypes = ["16S_rRNA", "23S_rRNA", "5S_rRNA"]
-        typesToShow = allTypes |> List.filter (\t -> List.member t usedTypes)
-    in
-    Html.div [ HtmlAttr.style "margin-top" "0.5em"
-             , HtmlAttr.style "display" "flex"
-             , HtmlAttr.style "flex-wrap" "wrap"
-             , HtmlAttr.style "gap" "0.3em 1em"
-             , HtmlAttr.style "font-size" "0.85em"
-             ]
-        (typesToShow |> List.map (\rtype ->
-            Html.span [ HtmlAttr.style "display" "inline-flex"
-                      , HtmlAttr.style "align-items" "center"
-                      , HtmlAttr.style "gap" "0.3em"
-                      ]
-                [ Html.span
-                    [ HtmlAttr.style "display" "inline-block"
-                    , HtmlAttr.style "width" "14px"
-                    , HtmlAttr.style "height" "14px"
-                    , HtmlAttr.style "background-color" (rRnaColor rtype)
-                    , HtmlAttr.style "border" "1px solid #999"
-                    ]
-                    []
-                , Html.text (String.replace "_" " " rtype)
-                ]
-        ))
-
-renderCogLegend : List EMapperGene -> Html.Html Msg
-renderCogLegend genes =
-    let
-        usedCats =
-            genes
-                |> List.map (\g -> String.left 1 g.cogCategory)
-                |> List.foldl (\c acc -> if List.member c acc then acc else acc ++ [c]) []
-                |> List.sort
-        allCats = ["J","A","K","L","B","D","Y","V","T","M","N","U","O","C","G","E","F","H","I","P","Q","R","S",""]
-        catsToShow = allCats |> List.filter (\c -> List.member c usedCats)
-    in
-    Html.div [ HtmlAttr.style "margin-top" "0.5em"
-             , HtmlAttr.style "display" "flex"
-             , HtmlAttr.style "flex-wrap" "wrap"
-             , HtmlAttr.style "gap" "0.3em 1em"
-             , HtmlAttr.style "font-size" "0.85em"
-             ]
-        (catsToShow |> List.map (\cat ->
-            Html.span [ HtmlAttr.style "display" "inline-flex"
-                      , HtmlAttr.style "align-items" "center"
-                      , HtmlAttr.style "gap" "0.3em"
-                      ]
-                [ Html.span
-                    [ HtmlAttr.style "display" "inline-block"
-                    , HtmlAttr.style "width" "14px"
-                    , HtmlAttr.style "height" "14px"
-                    , HtmlAttr.style "background-color" (cogColor cat)
-                    , HtmlAttr.style "border" "1px solid #999"
-                    ]
-                    []
-                , Html.text ((if String.isEmpty cat then "-" else cat) ++ ": " ++ cogDescription cat)
-                ]
-        ))

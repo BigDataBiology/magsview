@@ -1,6 +1,6 @@
-module Utils exposing (mkTooltipQuestionMark, mkTooltip)
+module Utils exposing (mkTooltipQuestionMark, mkTooltip, showWithCommas, legendItem)
 
-{-| This module provides utility functions for creating tooltips in HTML elements. -}
+{-| Small helpers shared between pages: tooltips, number formatting and legends. -}
 
 import Html exposing (Html)
 import Html.Attributes as HtmlAttr
@@ -28,3 +28,37 @@ mkTooltipQuestionMark tooltipText =
                 , HtmlAttr.style "position" "relative"
                 ]
             [ Html.text "?" ])
+
+
+{-| Format an integer with thousands separators, e.g. 1234567 -> "1,234,567".
+-}
+showWithCommas : Int -> String
+showWithCommas n =
+    let
+        addCommas s =
+            if String.length s <= 3
+                then s
+            else (addCommas (String.slice 0 (String.length s - 3) s)) ++ "," ++ String.slice (String.length s - 3) (String.length s) s
+    in
+        addCommas (String.fromInt n)
+
+
+{-| A colour swatch followed by its label, for use in legends.
+-}
+legendItem : String -> String -> Html msg
+legendItem color label =
+    Html.span
+        [ HtmlAttr.style "display" "inline-flex"
+        , HtmlAttr.style "align-items" "center"
+        , HtmlAttr.style "gap" "0.3em"
+        ]
+        [ Html.span
+            [ HtmlAttr.style "display" "inline-block"
+            , HtmlAttr.style "width" "14px"
+            , HtmlAttr.style "height" "14px"
+            , HtmlAttr.style "background-color" color
+            , HtmlAttr.style "border" "1px solid #999"
+            ]
+            []
+        , Html.text label
+        ]
