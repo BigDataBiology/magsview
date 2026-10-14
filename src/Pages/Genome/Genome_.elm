@@ -13,6 +13,9 @@ import Http
 import Json.Decode as D
 import Json.Encode as E
 import Dict
+import Task
+import Browser.Dom
+import Browser.Events
 
 import Svg
 import Svg.Attributes as SvgAttr
@@ -67,6 +70,15 @@ type RRnaDataModel
     | RRnaError String
     | RRnaWaiting
 
+{-| Drag-to-pan state of the genome map. `DragJustEnded` remembers that the
+last mouse press panned the map, so that the click which the browser fires on
+release does not also select the gene under the pointer.
+-}
+type GenomeMapDrag
+    = NotDragging
+    | Dragging { startX : Float, startOffset : Float, moved : Bool }
+    | DragJustEnded
+
 type GeneDisplayFilter
     = ShowAll
     | ShowProteinCoding
@@ -81,6 +93,7 @@ type alias Model =
     , showARGSequences : Bool
     , genomeMapZoom : Float
     , genomeMapOffset : Float
+    , genomeMapDrag : GenomeMapDrag
     , magId : String
     , geneSequence : GeneSequenceState
     , showGeneTable : Bool
@@ -99,6 +112,13 @@ type Msg =
     | GenomeMapZoomReset
     | GenomeMapScrollLeft
     | GenomeMapScrollRight
+    | GenomeMapDragStart Float
+    | GenomeMapDragMove Float
+    | GenomeMapDragEnd
+    | GenomeMapWheelZoom Float Float
+    | GenomeMapWheelZoomAt Float Float (Result Browser.Dom.Error Browser.Dom.Element)
+    | GenomeMapWheelPan Float
+    | SelectAdjacentGene Int
     | GeneClicked EMapperGene
     | GeneSequenceReceived D.Value
     | CloseGeneDetail
@@ -126,6 +146,7 @@ model0 magid =
     , showARGSequences = False
     , genomeMapZoom = 1.0
     , genomeMapOffset = 0.0
+    , genomeMapDrag = NotDragging
     , magId = magid
     , geneSequence = NoGeneSelected
     , showGeneTable = False
@@ -159,9 +180,19 @@ page shared route =
     Page.new
         { init = \_ -> (model0 route.params.genome, cmd0 route.params.genome)
         , update = update
-        , subscriptions = \_ -> Sub.batch
+        , subscriptions = \model -> Sub.batch
             [ GeneSequence.receiveGeneSequence GeneSequenceReceived
             , GeneSequence.receiveRRnaGenes RRnaDataReceived
+            , case model.genomeMapDrag of
+                -- Listen on the whole document so that the drag keeps
+                -- working when the pointer leaves the map
+                Dragging _ ->
+                    Sub.batch
+                        [ Browser.Events.onMouseMove (D.map GenomeMapDragMove (D.field "pageX" D.float))
+                        , Browser.Events.onMouseUp (D.succeed GenomeMapDragEnd)
+                        ]
+                _ ->
+                    Sub.none
             ]
         , view = view shared route
         }
@@ -223,31 +254,101 @@ update msg model =
             , Effect.none
             )
         GenomeMapZoomIn ->
-            let
-                newZoom = Basics.min 50 (model.genomeMapZoom * 1.5)
-                newOffset = clampOffset newZoom model.genomeMapOffset
-            in
-            ( { model | genomeMapZoom = newZoom, genomeMapOffset = newOffset }, Effect.none )
+            ( zoomMapAround 1.5 0.5 model, Effect.none )
         GenomeMapZoomOut ->
-            let
-                newZoom = Basics.max 1 (model.genomeMapZoom / 1.5)
-                newOffset = clampOffset newZoom model.genomeMapOffset
-            in
-            ( { model | genomeMapZoom = newZoom, genomeMapOffset = newOffset }, Effect.none )
+            ( zoomMapAround (1 / 1.5) 0.5 model, Effect.none )
         GenomeMapZoomReset ->
             ( { model | genomeMapZoom = 1.0, genomeMapOffset = 0.0 }, Effect.none )
         GenomeMapScrollLeft ->
-            let
-                step = 0.2 / model.genomeMapZoom
-                newOffset = clampOffset model.genomeMapZoom (model.genomeMapOffset - step)
-            in
-            ( { model | genomeMapOffset = newOffset }, Effect.none )
+            ( { model | genomeMapOffset = panOffset model.genomeMapZoom model.genomeMapOffset (-0.2) }, Effect.none )
         GenomeMapScrollRight ->
+            ( { model | genomeMapOffset = panOffset model.genomeMapZoom model.genomeMapOffset 0.2 }, Effect.none )
+
+        GenomeMapDragStart x ->
+            ( { model
+                | genomeMapDrag =
+                    if model.genomeMapZoom > 1 then
+                        Dragging { startX = x, startOffset = model.genomeMapOffset, moved = False }
+                    else
+                        NotDragging
+              }
+            , Effect.none
+            )
+
+        GenomeMapDragMove x ->
+            case model.genomeMapDrag of
+                Dragging drag ->
+                    let
+                        dx = x - drag.startX
+                        moved = drag.moved || abs dx > 3
+                    in
+                    ( { model
+                        | genomeMapDrag = Dragging { drag | moved = moved }
+                        , genomeMapOffset =
+                            if moved then
+                                panOffset model.genomeMapZoom drag.startOffset (-dx / genomeMapLayout.mapWidth)
+                            else
+                                model.genomeMapOffset
+                      }
+                    , Effect.none
+                    )
+                _ ->
+                    ( model, Effect.none )
+
+        GenomeMapDragEnd ->
+            ( { model
+                | genomeMapDrag =
+                    case model.genomeMapDrag of
+                        Dragging { moved } ->
+                            if moved then DragJustEnded else NotDragging
+                        other ->
+                            other
+              }
+            , Effect.none
+            )
+
+        GenomeMapWheelZoom factor pageX ->
+            -- The pointer position must be related to where the map is on
+            -- the page, which only the DOM knows
+            ( model
+            , Effect.sendCmd
+                (Task.attempt (GenomeMapWheelZoomAt factor pageX)
+                    (Browser.Dom.getElement genomeMapSvgId)
+                )
+            )
+
+        GenomeMapWheelZoomAt factor pageX element ->
             let
-                step = 0.2 / model.genomeMapZoom
-                newOffset = clampOffset model.genomeMapZoom (model.genomeMapOffset + step)
+                anchor =
+                    case element of
+                        Ok el ->
+                            mapPointerFraction el pageX
+                        Err _ ->
+                            0.5
             in
-            ( { model | genomeMapOffset = newOffset }, Effect.none )
+            ( zoomMapAround factor anchor model, Effect.none )
+
+        GenomeMapWheelPan px ->
+            ( { model | genomeMapOffset = panOffset model.genomeMapZoom model.genomeMapOffset (px / genomeMapLayout.mapWidth) }
+            , Effect.none
+            )
+
+        SelectAdjacentGene step ->
+            let
+                genes = genomeMapGeneOrder model
+                currentIndex =
+                    selectedGeneFromState model.geneSequence
+                        |> Maybe.andThen (\sel -> indexOf (\g -> g.seqid == sel.seqid) genes)
+                nextIndex =
+                    case currentIndex of
+                        Just ix -> Basics.clamp 0 (List.length genes - 1) (ix + step)
+                        Nothing -> if step > 0 then 0 else List.length genes - 1
+            in
+            case List.head (List.drop nextIndex genes) of
+                Just gene ->
+                    selectGene gene (scrollMapToGene gene model)
+                Nothing ->
+                    ( model, Effect.none )
 
         ToggleGeneTable ->
             ( { model | showGeneTable = not model.showGeneTable }, Effect.none )
@@ -273,26 +374,11 @@ update msg model =
                     ( model, Effect.none )
 
         GeneClicked gene ->
-            let
-                isRRna = case gene.geneType of
-                    RRna _ -> True
-                    ProteinCoding -> False
-            in
-            ( { model | geneSequence = GeneSequenceLoading gene }
-            , Effect.sendCmd
-                (GeneSequence.requestGeneSequence
-                    (E.object
-                        [ ( "magId", E.string model.magId )
-                        , ( "contig", E.string gene.contig )
-                        , ( "start", E.int gene.start )
-                        , ( "end", E.int gene.end )
-                        , ( "strand", E.string gene.strand )
-                        , ( "seqid", E.string gene.seqid )
-                        , ( "skipTranslation", E.bool isRRna )
-                        ]
-                    )
-                )
-            )
+            if model.genomeMapDrag == DragJustEnded then
+                -- This click ends a drag of the map, it is not a selection
+                ( { model | genomeMapDrag = NotDragging }, Effect.none )
+            else
+                selectGene gene model
 
         GeneSequenceReceived value ->
             let
@@ -361,12 +447,94 @@ update msg model =
             )
 
 
-clampOffset : Float -> Float -> Float
-clampOffset zoom offset =
+selectGene : EMapperGene -> Model -> ( Model, Effect Msg )
+selectGene gene model =
     let
-        maxOffset = Basics.max 0 (1 - 1 / zoom)
+        isRRna = case gene.geneType of
+            RRna _ -> True
+            ProteinCoding -> False
     in
-    Basics.max 0 (Basics.min maxOffset offset)
+    ( { model | geneSequence = GeneSequenceLoading gene }
+    , Effect.sendCmd
+        (GeneSequence.requestGeneSequence
+            (E.object
+                [ ( "magId", E.string model.magId )
+                , ( "contig", E.string gene.contig )
+                , ( "start", E.int gene.start )
+                , ( "end", E.int gene.end )
+                , ( "strand", E.string gene.strand )
+                , ( "seqid", E.string gene.seqid )
+                , ( "skipTranslation", E.bool isRRna )
+                ]
+            )
+        )
+    )
+
+
+indexOf : (a -> Bool) -> List a -> Maybe Int
+indexOf pred xs =
+    xs
+        |> List.indexedMap Tuple.pair
+        |> List.filter (\( _, x ) -> pred x)
+        |> List.head
+        |> Maybe.map Tuple.first
+
+
+{-| The map offset runs from 0 (view at the left end) to 1 (view at the right
+end), so the genome fraction where the view starts is `offset * (1 - 1/zoom)`.
+These two convert between the offset and that starting fraction.
+-}
+viewStartFromOffset : Float -> Float -> Float
+viewStartFromOffset zoom offset =
+    offset * (1 - 1 / zoom)
+
+
+offsetFromViewStart : Float -> Float -> Float
+offsetFromViewStart zoom viewStart =
+    if zoom <= 1 then
+        0
+    else
+        Basics.clamp 0 1 (viewStart / (1 - 1 / zoom))
+
+
+{-| Move the view by a fraction of its own width (negative is leftwards).
+-}
+panOffset : Float -> Float -> Float -> Float
+panOffset zoom offset viewFractions =
+    offsetFromViewStart zoom (viewStartFromOffset zoom offset + viewFractions / zoom)
+
+
+{-| Zoom by `factor`, keeping the genome position at `anchor` (a fraction of
+the visible width, 0 = left edge) under the same point of the view.
+-}
+zoomMapAround : Float -> Float -> Model -> Model
+zoomMapAround factor anchor model =
+    let
+        zoom = model.genomeMapZoom
+        newZoom = Basics.clamp 1 genomeMapMaxZoom (zoom * factor)
+        anchorPos = viewStartFromOffset zoom model.genomeMapOffset + anchor / zoom
+    in
+    { model
+        | genomeMapZoom = newZoom
+        , genomeMapOffset = offsetFromViewStart newZoom (anchorPos - anchor / newZoom)
+    }
+
+
+{-| If the gene is outside the visible part of the map, centre the view on it.
+-}
+scrollMapToGene : EMapperGene -> Model -> Model
+scrollMapToGene gene model =
+    let
+        zoom = model.genomeMapZoom
+        globalMax = toFloat (genomeMapMaxPos (genomeMapContigs model))
+        viewStart = viewStartFromOffset zoom model.genomeMapOffset
+        geneStart = toFloat gene.start / globalMax
+        geneEnd = toFloat gene.end / globalMax
+    in
+    if zoom <= 1 || (geneStart >= viewStart && geneEnd <= viewStart + 1 / zoom) then
+        model
+    else
+        { model | genomeMapOffset = offsetFromViewStart zoom ((geneStart + geneEnd) / 2 - 0.5 / zoom) }
 
 
 view :
@@ -755,6 +923,41 @@ filterGenes filter genes =
         ShowProteinCoding -> List.filter (\g -> g.geneType == ProteinCoding) genes
         ShowRRna -> List.filter (\g -> g.geneType /= ProteinCoding) genes
 
+loadedRRnaGenes : Model -> List EMapperGene
+loadedRRnaGenes model =
+    case model.rRnaData of
+        RRnaLoaded genes -> genes
+        _ -> []
+
+
+{-| All contigs drawn on the map (before the gene filter is applied).
+-}
+genomeMapContigs : Model -> List ContigInfo
+genomeMapContigs model =
+    case model.emapperData of
+        EMapperLoaded proteinGenes ->
+            groupByContig (proteinGenes ++ loadedRRnaGenes model)
+        _ ->
+            []
+
+
+genomeMapMaxPos : List ContigInfo -> Int
+genomeMapMaxPos contigs =
+    contigs
+        |> List.map .maxPos
+        |> List.maximum
+        |> Maybe.withDefault 1
+
+
+{-| The genes currently shown on the map, in reading order: contig by contig
+(top to bottom), then by position. Used for keyboard navigation.
+-}
+genomeMapGeneOrder : Model -> List EMapperGene
+genomeMapGeneOrder model =
+    genomeMapContigs model
+        |> List.concatMap (\c -> List.sortBy .start (filterGenes model.geneFilter c.genes))
+
+
 showGenomeMap : Model -> Html.Html Msg
 showGenomeMap model =
     case model.emapperData of
@@ -764,15 +967,10 @@ showGenomeMap model =
             Html.p [] [ Html.text ("Could not load genome map: " ++ e) ]
         EMapperLoaded proteinGenes ->
             let
-                rRnaGenes = case model.rRnaData of
-                    RRnaLoaded genes -> genes
-                    _ -> []
+                rRnaGenes = loadedRRnaGenes model
                 allGenes = proteinGenes ++ rRnaGenes
-                allContigs = groupByContig allGenes
-                globalMax = allContigs
-                    |> List.map .maxPos
-                    |> List.maximum
-                    |> Maybe.withDefault 1
+                allContigs = genomeMapContigs model
+                globalMax = genomeMapMaxPos allContigs
                 displayContigs = allContigs
                     |> List.map (\c -> { c | genes = filterGenes model.geneFilter c.genes })
                 displayGenes = filterGenes model.geneFilter allGenes
@@ -781,7 +979,8 @@ showGenomeMap model =
             Html.div []
                 [ genomeMapControls model globalMax
                 , geneFilterControls model.geneFilter (not (List.isEmpty rRnaGenes))
-                , renderGenomeMap model.genomeMapZoom model.genomeMapOffset selectedGene globalMax displayContigs
+                , renderGenomeMap model selectedGene globalMax displayContigs
+                , genomeMapHelp
                 , renderGeneDetail model.showDnaSequence allGenes model.geneSequence
                 , renderGeneLegend model.geneFilter displayGenes
                 , renderCogSummary proteinGenes
@@ -851,9 +1050,9 @@ genomeMapControls model globalMax =
             , HtmlAttr.style "border-radius" "4px"
             , HtmlAttr.style "overflow" "hidden"
             ]
-            [ mapButtonDual GenomeMapScrollLeft (zoom > 1 && offset > 0) "\u{25C0}" "\u{2039}"
+            [ mapButtonDual GenomeMapScrollLeft (zoom > 1 && offset > 0) "Scroll left" "\u{25C0}" "\u{2039}"
             , mapButtonSep
-            , mapButton GenomeMapZoomOut (zoom > 1) "\u{2212}"
+            , mapButton GenomeMapZoomOut (zoom > 1) "Zoom out" "\u{2212}"
             , mapButtonSep
             , Html.span
                 [ HtmlAttr.style "padding" "0.3em 0.6em"
@@ -866,9 +1065,9 @@ genomeMapControls model globalMax =
                 ]
                 [ Html.text (String.fromInt (round zoom) ++ "x") ]
             , mapButtonSep
-            , mapButton GenomeMapZoomIn (zoom < 50) "+"
+            , mapButton GenomeMapZoomIn (zoom < genomeMapMaxZoom) "Zoom in" "+"
             , mapButtonSep
-            , mapButtonDual GenomeMapScrollRight (zoom > 1) "\u{25B6}" "\u{203A}"
+            , mapButtonDual GenomeMapScrollRight (zoom > 1 && offset < 1) "Scroll right" "\u{25B6}" "\u{203A}"
             ]
         , if zoom /= 1.0 then
             Html.button
@@ -892,15 +1091,18 @@ genomeMapControls model globalMax =
                 [ HtmlAttr.style "font-size" "0.85em"
                 , HtmlAttr.style "color" "#666"
                 , HtmlAttr.style "margin-left" "0.5em"
+                , HtmlAttr.attribute "aria-live" "polite"
                 ]
                 [ Html.text posLabel ]
         ]
 
 
-mapButton : Msg -> Bool -> String -> Html.Html Msg
-mapButton msg enabled label =
+mapButton : Msg -> Bool -> String -> String -> Html.Html Msg
+mapButton msg enabled description label =
     Html.button
         [ HE.onClick msg
+        , HtmlAttr.title description
+        , HtmlAttr.attribute "aria-label" description
         , HtmlAttr.disabled (not enabled)
         , HtmlAttr.style "padding" "0.3em 0.7em"
         , HtmlAttr.style "font-size" "0.9em"
@@ -914,10 +1116,12 @@ mapButton msg enabled label =
         [ Html.text label ]
 
 
-mapButtonDual : Msg -> Bool -> String -> String -> Html.Html Msg
-mapButtonDual msg enabled enabledLabel disabledLabel =
+mapButtonDual : Msg -> Bool -> String -> String -> String -> Html.Html Msg
+mapButtonDual msg enabled description enabledLabel disabledLabel =
     Html.button
         [ HE.onClick msg
+        , HtmlAttr.title description
+        , HtmlAttr.attribute "aria-label" description
         , HtmlAttr.disabled (not enabled)
         , HtmlAttr.style "padding" "0.3em 0.7em"
         , HtmlAttr.style "font-size" "0.9em"
@@ -1029,10 +1233,137 @@ genomeMapLayout =
     }
 
 
-renderGenomeMap : Float -> Float -> Maybe EMapperGene -> Int -> List ContigInfo -> Html.Html Msg
-renderGenomeMap zoom offset selectedGene globalMax contigs =
+genomeMapMaxZoom : Float
+genomeMapMaxZoom =
+    50
+
+
+genomeMapSvgId : String
+genomeMapSvgId =
+    "genome-map-svg"
+
+
+{-| Where `pageX` falls within the drawn map, as a fraction of its width.
+The SVG keeps its aspect ratio, so on screens wider than the map it is drawn
+centred inside a larger element.
+-}
+mapPointerFraction : Browser.Dom.Element -> Float -> Float
+mapPointerFraction el pageX =
     let
+        width = el.element.width
+        drawnWidth = Basics.min width genomeMapLayout.mapWidth
+        left = el.element.x + (width - drawnWidth) / 2
+    in
+    if drawnWidth <= 0 then
+        0.5
+    else
+        Basics.clamp 0 1 ((pageX - left) / drawnWidth)
+
+
+{-| Ctrl/Cmd + wheel (which is also what trackpad pinches send) zooms around
+the pointer; horizontal or Shift + wheel pans. A plain vertical wheel is left
+alone so that it still scrolls the page.
+-}
+genomeMapWheelDecoder : Float -> D.Decoder ( Msg, Bool )
+genomeMapWheelDecoder zoom =
+    let
+        toPixels mode delta =
+            case mode of
+                1 -> delta * 16
+                2 -> delta * 800
+                _ -> delta
+
+        fromEvent dx dy mode zoomKey shift pageX =
+            let
+                pxX = toPixels mode dx
+                pxY = toPixels mode dy
+                horizontal =
+                    if shift && pxX == 0 then pxY
+                    else if abs pxX > abs pxY then pxX
+                    else 0
+            in
+            if zoomKey then
+                D.succeed ( GenomeMapWheelZoom (Basics.clamp 0.5 2 (e ^ (-pxY * 0.005))) pageX, True )
+            else if zoom > 1 && horizontal /= 0 then
+                D.succeed ( GenomeMapWheelPan horizontal, True )
+            else
+                D.fail "not a map gesture"
+    in
+    D.map6 fromEvent
+        (D.field "deltaX" D.float)
+        (D.field "deltaY" D.float)
+        (D.field "deltaMode" D.int)
+        (D.map2 (||) (D.field "ctrlKey" D.bool) (D.field "metaKey" D.bool))
+        (D.field "shiftKey" D.bool)
+        (D.field "pageX" D.float)
+        |> D.andThen identity
+
+
+genomeMapKeyDecoder : D.Decoder ( Msg, Bool )
+genomeMapKeyDecoder =
+    let
+        fromKey key modified =
+            if modified then
+                -- Leave Ctrl/Cmd/Alt shortcuts (e.g. browser zoom) alone
+                D.fail "modified key"
+            else
+                case key of
+                    "ArrowLeft" -> D.succeed GenomeMapScrollLeft
+                    "ArrowRight" -> D.succeed GenomeMapScrollRight
+                    "+" -> D.succeed GenomeMapZoomIn
+                    "=" -> D.succeed GenomeMapZoomIn
+                    "-" -> D.succeed GenomeMapZoomOut
+                    "0" -> D.succeed GenomeMapZoomReset
+                    "n" -> D.succeed (SelectAdjacentGene 1)
+                    "p" -> D.succeed (SelectAdjacentGene (-1))
+                    "Escape" -> D.succeed CloseGeneDetail
+                    _ -> D.fail "not a map key"
+    in
+    D.map2 fromKey
+        (D.field "key" D.string)
+        (D.map3 (\c m a -> c || m || a)
+            (D.field "ctrlKey" D.bool)
+            (D.field "metaKey" D.bool)
+            (D.field "altKey" D.bool)
+        )
+        |> D.andThen identity
+        |> D.map (\msg -> ( msg, True ))
+
+
+genomeMapMouseDownDecoder : D.Decoder Msg
+genomeMapMouseDownDecoder =
+    D.field "button" D.int
+        |> D.andThen (\button ->
+            if button == 0 then
+                D.map GenomeMapDragStart (D.field "pageX" D.float)
+            else
+                D.fail "not the main button"
+        )
+
+
+genomeMapHelp : Html.Html msg
+genomeMapHelp =
+    Html.p
+        [ HtmlAttr.id "genome-map-help"
+        , HtmlAttr.style "font-size" "0.8em"
+        , HtmlAttr.style "color" "#777"
+        , HtmlAttr.style "margin" "0.3em 0 0"
+        ]
+        [ Html.text "Drag to pan, Ctrl + scroll or pinch to zoom. Keyboard (click the map first): "
+        , Html.text "\u{2190} \u{2192} pan, + \u{2212} zoom, 0 reset, n / p next / previous gene, Esc close gene details."
+        ]
+
+
+renderGenomeMap : Model -> Maybe EMapperGene -> Int -> List ContigInfo -> Html.Html Msg
+renderGenomeMap model selectedGene globalMax contigs =
+    let
+        zoom = model.genomeMapZoom
+        offset = model.genomeMapOffset
         lay = genomeMapLayout
+        mapCursor =
+            case model.genomeMapDrag of
+                Dragging _ -> "grabbing"
+                _ -> if zoom > 1 then "grab" else "default"
         svgHeight = List.length contigs * (lay.rowHeight + lay.rowSpacing) + 10
         -- Virtual width of the full zoomed map
         virtualWidth = lay.mapWidth * zoom
@@ -1046,8 +1377,15 @@ renderGenomeMap zoom offset selectedGene globalMax contigs =
     in
     Html.div []
         [ Html.div
-            [ HtmlAttr.style "display" "flex"
+            [ HtmlAttr.class "genome-map"
+            , HtmlAttr.tabindex 0
+            , HtmlAttr.attribute "role" "group"
+            , HtmlAttr.attribute "aria-label" "Genome map"
+            , HtmlAttr.attribute "aria-describedby" "genome-map-help"
+            , HE.preventDefaultOn "keydown" genomeMapKeyDecoder
+            , HtmlAttr.style "display" "flex"
             , HtmlAttr.style "border" "1px solid #ddd"
+            , HtmlAttr.style "user-select" "none"
             ]
             [ -- Fixed labels column
               Svg.svg
@@ -1080,7 +1418,10 @@ renderGenomeMap zoom offset selectedGene globalMax contigs =
                         ++ String.fromFloat lay.mapWidth
                         ++ " " ++ String.fromInt svgHeight
                     )
-                , SvgAttr.style "font-family: sans-serif; font-size: 11px; flex-grow: 1;"
+                , SvgAttr.style ("font-family: sans-serif; font-size: 11px; flex-grow: 1; cursor: " ++ mapCursor ++ ";")
+                , SvgAttr.id genomeMapSvgId
+                , HE.preventDefaultOn "wheel" (genomeMapWheelDecoder zoom)
+                , HE.on "mousedown" genomeMapMouseDownDecoder
                 ]
                 (contigs
                     |> List.indexedMap (\i contig ->
@@ -1199,10 +1540,15 @@ renderGeneArrow useArrows scale cy selectedGene gene =
         strokeW = if isSelected then "2" else if useArrows then "0.5" else "0.3"
         clickHandler = SvgEvents.onClick (GeneClicked gene)
         cursorStyle = SvgAttr.style "cursor: pointer;"
+        ariaAttrs =
+            [ HtmlAttr.attribute "role" "button"
+            , HtmlAttr.attribute "aria-label" (geneAccessibleLabel gene)
+            , HtmlAttr.attribute "aria-pressed" (if isSelected then "true" else "false")
+            ]
     in
     if not useArrows then
         Svg.rect
-            [ SvgAttr.x (String.fromFloat x1)
+            ([ SvgAttr.x (String.fromFloat x1)
             , SvgAttr.y (String.fromFloat (cy - halfHeight))
             , SvgAttr.width (String.fromFloat (Basics.max 1 geneWidth))
             , SvgAttr.height (String.fromFloat (halfHeight * 2))
@@ -1212,6 +1558,8 @@ renderGeneArrow useArrows scale cy selectedGene gene =
             , clickHandler
             , cursorStyle
             ]
+            ++ ariaAttrs
+            )
             [ Svg.title [] [ Svg.text tooltipText ]
             ]
     else
@@ -1236,15 +1584,43 @@ renderGeneArrow useArrows scale cy selectedGene gene =
                         ]
         in
         Svg.polygon
-            [ SvgAttr.points points
+            ([ SvgAttr.points points
             , SvgAttr.fill color
             , SvgAttr.stroke strokeColor
             , SvgAttr.strokeWidth strokeW
             , clickHandler
             , cursorStyle
             ]
+            ++ ariaAttrs
+            )
             [ Svg.title [] [ Svg.text tooltipText ]
             ]
+
+
+{-| Screen-reader description of a gene arrow, e.g.
+"dnaA, COG L (Replication, recombination and repair), contig_1 1,200 to 2,550 bp, plus strand".
+-}
+geneAccessibleLabel : EMapperGene -> String
+geneAccessibleLabel gene =
+    let
+        name = if String.isEmpty gene.preferredName then gene.seqid else gene.preferredName
+        kind =
+            case gene.geneType of
+                RRna rtype ->
+                    String.replace "_" " " rtype
+                ProteinCoding ->
+                    if String.isEmpty gene.cogCategory then
+                        "no COG category"
+                    else
+                        "COG " ++ gene.cogCategory ++ " (" ++ cogDescription (String.left 1 gene.cogCategory) ++ ")"
+        strand = if gene.strand == "+" then "plus strand" else "minus strand"
+    in
+    String.join ", "
+        [ name
+        , kind
+        , gene.contig ++ " " ++ showWithCommas gene.start ++ " to " ++ showWithCommas gene.end ++ " bp"
+        , strand
+        ]
 
 
 p : Float -> Float -> String

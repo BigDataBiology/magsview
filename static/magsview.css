@@ -227,3 +227,14 @@ main table:not(.table) td {
   padding: 0.2em 1.5em 0.2em 0;
   vertical-align: top;
 }
+
+
+/* Genome map: it takes keyboard focus for panning/zooming */
+.genome-map:focus {
+  outline: none;
+}
+
+.genome-map:focus-visible {
+  outline: 2px solid #4285f4;
+  outline-offset: 2px;
+}
