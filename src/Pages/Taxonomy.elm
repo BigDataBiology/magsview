@@ -1,7 +1,6 @@
 module Pages.Taxonomy exposing (page, Model, Msg)
 
 import Bytes exposing (Bytes)
-import Bytes.Encode
 import Dict exposing (Dict)
 import File.Download as Download
 import Html
@@ -9,9 +8,6 @@ import Html.Attributes as HtmlAttr
 import Html.Events as HE
 import Http
 import Set
-import Time
-import Zip
-import Zip.Entry
 
 import Route exposing (Route)
 import Page exposing (Page)
@@ -35,7 +31,8 @@ import DataModel exposing (MAG)
 import Data exposing (mags)
 import Layouts
 import GenomeStats exposing (splitTaxon)
-import Data.Info exposing (datasetName, mkFASTALink, mkReadmeFile, datasetTag, datasetSlug)
+import Data.Info exposing (datasetName, mkFASTALink)
+import ZipDownload exposing (DownloadState(..))
 
 
 type TreeNode =
@@ -72,11 +69,6 @@ type alias Model =
     , searchQuery : String
     , allTaxa : List TaxonEntry
     }
-
-type DownloadState
-    = NotStarted
-    | Downloading { expected : Int, fetched : Dict String Bytes }
-    | DownloadError String
 
 
 type Msg =
@@ -138,41 +130,28 @@ update msg model =
         TriggerBulkDownload ->
             case model.showDownloadModal of
                 Just modal ->
-                    ( { model | downloadState = Downloading { expected = List.length modal.mags, fetched = Dict.empty } }
-                    , modal.mags
-                        |> List.map fetchFastaBytes
-                        |> Cmd.batch
-                        |> Effect.sendCmd
+                    let
+                        ( downloadState, cmd ) = ZipDownload.start GotFastaBytes modal.mags
+                    in
+                    ( { model | downloadState = downloadState }
+                    , Effect.sendCmd cmd
                     )
                 Nothing ->
                     ( model, Effect.none )
 
         GotFastaBytes magId result ->
-            case model.downloadState of
-                Downloading state ->
-                    case result of
-                        Ok bytes ->
-                            let
-                                newFetched = Dict.insert magId bytes state.fetched
-                            in
-                            if Dict.size newFetched == state.expected then
-                                let
-                                    modal = model.showDownloadModal
-                                        |> Maybe.withDefault { taxonName = "genomes", mags = [] }
-                                in
-                                ( { model | downloadState = NotStarted }
-                                , buildAndDownloadZip modal.taxonName modal.mags newFetched
-                                    |> Effect.sendCmd
-                                )
-                            else
-                                ( { model | downloadState = Downloading { state | fetched = newFetched } }
-                                , Effect.none
-                                )
-                        Err _ ->
-                            ( { model | downloadState = DownloadError ("Failed to download " ++ magId) }
-                            , Effect.none
-                            )
-                _ ->
+            case model.showDownloadModal of
+                Just modal ->
+                    let
+                        ( downloadState, saveZip ) =
+                            ZipDownload.addFasta (downloadBundle modal) magId result model.downloadState
+                    in
+                    ( { model | downloadState = downloadState }
+                    , saveZip
+                        |> Maybe.map Effect.sendCmd
+                        |> Maybe.withDefault Effect.none
+                    )
+                Nothing ->
                     ( model, Effect.none )
 
         ExpandNode target ->
@@ -224,106 +203,13 @@ bestTaxonName ms =
                 |> Maybe.withDefault "genomes"
 
 
-fetchFastaBytes : MAG -> Cmd Msg
-fetchFastaBytes mag =
-    Http.request
-        { method = "GET"
-        , headers = []
-        , url = mkFASTALink mag.id
-        , body = Http.emptyBody
-        , expect = Http.expectBytesResponse (GotFastaBytes mag.id) handleBytesResponse
-        , timeout = Nothing
-        , tracker = Nothing
-        }
-
-
-handleBytesResponse : Http.Response Bytes -> Result Http.Error Bytes
-handleBytesResponse response =
-    case response of
-        Http.BadUrl_ url ->
-            Err (Http.BadUrl url)
-        Http.Timeout_ ->
-            Err Http.Timeout
-        Http.NetworkError_ ->
-            Err Http.NetworkError
-        Http.BadStatus_ metadata _ ->
-            Err (Http.BadStatus metadata.statusCode)
-        Http.GoodStatus_ _ body ->
-            Ok body
-
-
-buildAndDownloadZip : String -> List MAG -> Dict String Bytes -> Cmd Msg
-buildAndDownloadZip taxonName magsForDownload fetchedFiles =
-    let
-        dir = (datasetSlug ++ "-magsview/")
-
-        safeTaxonName =
-            taxonName
-                |> String.replace " " "_"
-
-        entryMeta path =
-            { path = path
-            , lastModified = ( Time.utc, Time.millisToPosix 0 )
-            , comment = Nothing
-            }
-
-        fastaEntries =
-            fetchedFiles
-                |> Dict.toList
-                |> List.map (\( magId, bytes ) ->
-                    Zip.Entry.store (entryMeta (dir ++ magId ++ ".fna.gz")) bytes
-                )
-
-        tsvBytes =
-            magMetadataTsv magsForDownload
-                |> Bytes.Encode.string
-                |> Bytes.Encode.encode
-
-        tsvEntry =
-            Zip.Entry.store (entryMeta (dir ++ safeTaxonName ++ ".metadata.tsv")) tsvBytes
-
-        readmeBytes =
-            readmeContent taxonName
-                |> Bytes.Encode.string
-                |> Bytes.Encode.encode
-
-        readmeEntry =
-            Zip.Entry.store (entryMeta (dir ++ "README.md")) readmeBytes
-
-        zip =
-            Zip.fromEntries (readmeEntry :: tsvEntry :: fastaEntries)
-    in
-    Download.bytes (datasetTag ++ "_" ++ safeTaxonName ++ ".zip") "application/zip" (Zip.toBytes zip)
-
-
-readmeContent : String -> String
-readmeContent taxonName =
-    mkReadmeFile
-        taxonName
-        ("filtered by taxonomy (" ++ taxonName ++ ")")
-        (String.replace " " "_" taxonName)
-
-
-magMetadataTsv : List MAG -> String
-magMetadataTsv ms =
-    let
-        header =
-            "mag_id\ttaxonomy\tcompleteness\tcontamination\tgenome_size\tnr_contigs\tnr_genes\tis_representative"
-
-        row mag =
-            String.join "\t"
-                [ mag.id
-                , mag.taxonomy
-                , String.fromFloat mag.completeness
-                , String.fromFloat mag.contamination
-                , String.fromInt mag.genomeSize
-                , String.fromInt mag.nrContigs
-                , String.fromInt mag.nrGenes
-                , if mag.isRepresentative then "True" else "False"
-                ]
-    in
-    (header :: List.map row ms)
-        |> String.join "\n"
+downloadBundle : DownloadModal -> ZipDownload.Bundle
+downloadBundle modal =
+    { name = modal.taxonName
+    , title = modal.taxonName
+    , description = "filtered by taxonomy (" ++ modal.taxonName ++ ")"
+    , mags = modal.mags
+    }
 
 expand1 : Int -> List MAG -> List TreeNode
 expand1 level mags =

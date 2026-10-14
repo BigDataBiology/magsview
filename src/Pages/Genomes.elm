@@ -1,16 +1,12 @@
 module Pages.Genomes exposing (page, Model, Msg)
 
 import Bytes exposing (Bytes)
-import Bytes.Encode
 import Dict exposing (Dict)
 import File.Download as Download
 import Html
 import Html.Attributes as HtmlAttr
 import Html.Events as HE
 import Http
-import Time
-import Zip
-import Zip.Entry
 
 import Route exposing (Route)
 import Page exposing (Page)
@@ -43,9 +39,10 @@ import Bootstrap.Table as Table
 
 import DataModel exposing (MAG)
 import Data exposing (mags)
-import Data.Info exposing (mkFASTALink, mkReadmeFile, datasetName, datasetTag, datasetSlug)
+import Data.Info exposing (mkFASTALink, datasetName, datasetTag)
 import GenomeStats exposing (Quality(..), magQuality, taxonomyLast, splitTaxon, showTaxon)
 import Shared
+import ZipDownload exposing (DownloadState(..))
 
 
 
@@ -56,11 +53,6 @@ type SortOrder =
     | ByContamination
     | ByNrContigs
     | ByGenomeSize
-
-type DownloadState
-    = NotStarted
-    | Downloading { expected : Int, fetched : Dict String Bytes }
-    | DownloadError String
 
 type alias Model =
     { qualityFilter : Maybe String
@@ -203,13 +195,10 @@ update msg model =
             ({ model | showDownloadModal = False, downloadState = NotStarted }, Effect.none)
         TriggerBulkDownload ->
             let
-                sel = filteredMags model
+                ( downloadState, cmd ) = ZipDownload.start GotFastaBytes (filteredMags model)
             in
-            ( { model | downloadState = Downloading { expected = List.length sel, fetched = Dict.empty } }
-            , sel
-                |> List.map fetchFastaBytes
-                |> Cmd.batch
-                |> Effect.sendCmd
+            ( { model | downloadState = downloadState }
+            , Effect.sendCmd cmd
             )
         DownloadScript filename content ->
             ( model
@@ -218,28 +207,22 @@ update msg model =
         SetUseWget v ->
             ({ model | useWget = v }, Effect.none)
         GotFastaBytes magId result ->
-            case model.downloadState of
-                Downloading state ->
-                    case result of
-                        Ok bytes ->
-                            let
-                                newFetched = Dict.insert magId bytes state.fetched
-                            in
-                            if Dict.size newFetched == state.expected then
-                                ( { model | downloadState = NotStarted, showDownloadModal = False }
-                                , buildAndDownloadZip (filteredMags model) newFetched
-                                    |> Effect.sendCmd
-                                )
-                            else
-                                ( { model | downloadState = Downloading { state | fetched = newFetched } }
-                                , Effect.none
-                                )
-                        Err _ ->
-                            ( { model | downloadState = DownloadError ("Failed to download " ++ magId) }
-                            , Effect.none
-                            )
-                _ ->
-                    ( model, Effect.none )
+            case ZipDownload.addFasta (downloadBundle model) magId result model.downloadState of
+                ( downloadState, Just saveZip ) ->
+                    ( { model | downloadState = downloadState, showDownloadModal = False }
+                    , Effect.sendCmd saveZip
+                    )
+                ( downloadState, Nothing ) ->
+                    ( { model | downloadState = downloadState }, Effect.none )
+
+
+downloadBundle : Model -> ZipDownload.Bundle
+downloadBundle model =
+    { name = "selected_genomes"
+    , title = "Selected Genomes"
+    , description = "selected from the genome browser table"
+    , mags = filteredMags model
+    }
 
 
 last : List a -> Maybe a
@@ -334,99 +317,6 @@ mkTSV model =
             , List.map (String.join "\t") rows
                 |> String.join "\n"
             ]
-
-fetchFastaBytes : MAG -> Cmd Msg
-fetchFastaBytes mag =
-    Http.request
-        { method = "GET"
-        , headers = []
-        , url = mkFASTALink mag.id
-        , body = Http.emptyBody
-        , expect = Http.expectBytesResponse (GotFastaBytes mag.id) handleBytesResponse
-        , timeout = Nothing
-        , tracker = Nothing
-        }
-
-
-handleBytesResponse : Http.Response Bytes -> Result Http.Error Bytes
-handleBytesResponse response =
-    case response of
-        Http.BadUrl_ url ->
-            Err (Http.BadUrl url)
-        Http.Timeout_ ->
-            Err Http.Timeout
-        Http.NetworkError_ ->
-            Err Http.NetworkError
-        Http.BadStatus_ metadata _ ->
-            Err (Http.BadStatus metadata.statusCode)
-        Http.GoodStatus_ _ body ->
-            Ok body
-
-
-buildAndDownloadZip : List MAG -> Dict String Bytes -> Cmd Msg
-buildAndDownloadZip magsForDownload fetchedFiles =
-    let
-        dir = (datasetSlug ++ "-magsview/")
-
-        entryMeta path =
-            { path = path
-            , lastModified = ( Time.utc, Time.millisToPosix 0 )
-            , comment = Nothing
-            }
-
-        fastaEntries =
-            fetchedFiles
-                |> Dict.toList
-                |> List.map (\( magId, bytes ) ->
-                    Zip.Entry.store (entryMeta (dir ++ magId ++ ".fna.gz")) bytes
-                )
-
-        tsvBytes =
-            magMetadataTsv magsForDownload
-                |> Bytes.Encode.string
-                |> Bytes.Encode.encode
-
-        tsvEntry =
-            Zip.Entry.store (entryMeta (dir ++ datasetTag ++ "_selected_genomes.metadata.tsv")) tsvBytes
-
-        readmeBytes =
-            readmeContent
-                |> Bytes.Encode.string
-                |> Bytes.Encode.encode
-
-        readmeEntry =
-            Zip.Entry.store (entryMeta (dir ++ "README.md")) readmeBytes
-
-        zip =
-            Zip.fromEntries (readmeEntry :: tsvEntry :: fastaEntries)
-    in
-    Download.bytes (datasetTag++"_selected_genomes.zip") "application/zip" (Zip.toBytes zip)
-
-
-readmeContent : String
-readmeContent = mkReadmeFile "Selected Genomes" "selected from the genome browser table" (datasetTag++"_selected_genomes")
-
-magMetadataTsv : List MAG -> String
-magMetadataTsv ms =
-    let
-        header =
-            "mag_id\ttaxonomy\tcompleteness\tcontamination\tgenome_size\tnr_contigs\tnr_genes\tis_representative"
-
-        row mag =
-            String.join "\t"
-                [ mag.id
-                , mag.taxonomy
-                , String.fromFloat mag.completeness
-                , String.fromFloat mag.contamination
-                , String.fromInt mag.genomeSize
-                , String.fromInt mag.nrContigs
-                , String.fromInt mag.nrGenes
-                , if mag.isRepresentative then "True" else "False"
-                ]
-    in
-    (header :: List.map row ms)
-        |> String.join "\n"
-
 
 filteredMags : Model -> List MAG
 filteredMags model =
