@@ -580,7 +580,7 @@ view model =
                         Button.button
                             [ Button.outlinePrimary
                             , Button.disabled True
-                            , Button.attrs [ HtmlAttr.title "Filter to 100 or fewer genomes to enable zip download" ]
+                            , Button.attrs [ HtmlAttr.title "Filter to 200 or fewer genomes to enable zip download" ]
                             ]
                             [ Html.text ("Download genomes as zip (max 200, currently " ++ String.fromInt (List.length sel) ++ ")") ]
                     ]
