@@ -37,6 +37,11 @@ function parseFasta(text) {
   return contigs;
 }
 
+// Decompress a gzipped response body and decode it as UTF-8 text
+function gunzipText(response) {
+  return new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).text();
+}
+
 async function fetchFasta(magId) {
   if (fastaCache.has(magId)) {
     return fastaCache.get(magId);
@@ -50,22 +55,10 @@ async function fetchFasta(magId) {
     if (!response.ok) {
       throw new Error(`Failed to fetch FASTA: ${response.status}`);
     }
-    const ds = new DecompressionStream('gzip');
-    const decompressed = response.body.pipeThrough(ds);
-    const reader = decompressed.getReader();
-    const decoder = new TextDecoder();
-    let text = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      text += decoder.decode(value, { stream: true });
-    }
-    text += decoder.decode();
-    const contigs = parseFasta(text);
+    const contigs = parseFasta(await gunzipText(response));
     fastaCache.set(magId, contigs);
-    fastaFetching.delete(magId);
     return contigs;
-  })();
+  })().finally(() => fastaFetching.delete(magId));
   fastaFetching.set(magId, promise);
   return promise;
 }
@@ -213,17 +206,7 @@ export const onReady = ({ app, env }) => {
         app.ports.receiveRRnaGenes.send({ error: `Failed to fetch rRNA data: ${response.status}` });
         return;
       }
-      const ds = new DecompressionStream('gzip');
-      const decompressed = response.body.pipeThrough(ds);
-      const reader = decompressed.getReader();
-      const decoder = new TextDecoder();
-      let text = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        text += decoder.decode(value, { stream: true });
-      }
-      text += decoder.decode();
+      const text = await gunzipText(response);
 
       // FASTA headers are parsed on the Elm side (Barrnap.parseHeader)
       const headers = text.split('\n').filter(line => line.startsWith('>'));
