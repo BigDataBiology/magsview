@@ -35,46 +35,11 @@ import GenomeStats exposing (taxonomyLast, printableTaxonomy, showTaxon)
 import Utils exposing (mkTooltipQuestionMark)
 import Data.Info exposing (mkFASTALink, mkENOGLink, mkEMapperSummaryLink, mkBarrnapLink)
 import GeneSequence
+import EMapper exposing (EMapperGene, GeneType(..), parseEMapperTsv)
+import GenomeData exposing (MAGData, MicrobeAtlasMatch, decodeMAGData)
+import Barrnap exposing (decodeRRnaGenes)
 
 -- INIT
-
-type alias MicrobeAtlasMatch =
-    { seq : String
-    , otu : String
-    }
-
-type alias ARG =
-    { seq : String
-    , argName : String
-    , aro : String
-    , cutOff : String
-    , matchID : Float
-    , fractionMatch : Float
-    , inResfinder : Bool
-    , drugClass : String
-    }
-
-type alias MAGData =
-    { microbeAtlas : List MicrobeAtlasMatch
-    , argData : List ARG
-    }
-
-type GeneType
-    = ProteinCoding
-    | RRna String  -- "16S_rRNA", "23S_rRNA", "5S_rRNA"
-
-type alias EMapperGene =
-    { seqid : String
-    , contig : String
-    , start : Int
-    , end : Int
-    , strand : String
-    , cogCategory : String
-    , preferredName : String
-    , keggKo : List String
-    , keggModule : List String
-    , geneType : GeneType
-    }
 
 type LoadedDataModel =
     Loaded MAGData
@@ -151,28 +116,6 @@ type APIResult =
 type alias MightMAG
     = Result String MAG
 
-decodeARG : D.Decoder ARG
-decodeARG =
-    D.map8 ARG
-        (D.field "Sequence" D.string)
-        (D.field "ArgName" D.string)
-        (D.field "ARO" D.string)
-        (D.field "Cut_Off" D.string)
-        (D.field "Identity" D.float)
-        (D.field "Coverage" D.float)
-        (D.field "InResfinder" D.bool)
-        (D.field "Drug Class" D.string)
-
-decodeMAGData : D.Decoder APIResult
-decodeMAGData =
-    D.map2 MAGData
-        (D.field "16S" (D.list (D.map2 MicrobeAtlasMatch
-            (D.field "Seq" D.string)
-            (D.field "OTU" D.string)
-        )))
-        (D.field "ARGs" (D.list decodeARG))
-    |> D.map APIResultOK
-
 model0 : String -> Model
 model0 magid =
     { magdata = Waiting
@@ -196,7 +139,7 @@ cmd0 magid =
         [ Effect.sendCmd
             (Http.get
                 { url = "/genome-data/"++ magid ++ ".json"
-                , expect = Http.expectJson ResultsData decodeMAGData
+                , expect = Http.expectJson ResultsData (D.map APIResultOK decodeMAGData)
                 }
             )
         , Effect.sendCmd
@@ -394,31 +337,8 @@ update msg model =
 
         RRnaDataReceived value ->
             let
-                genesDecoder =
-                    D.field "genes"
-                        (D.list
-                            (D.map5 (\rtype contig start end strand ->
-                                    { seqid = rtype ++ "::" ++ contig ++ ":" ++ String.fromInt start ++ "-" ++ String.fromInt end ++ "(" ++ strand ++ ")"
-                                    , contig = contig
-                                    , start = start
-                                    , end = end
-                                    , strand = strand
-                                    , cogCategory = ""
-                                    , preferredName = String.replace "_" " " rtype
-                                    , keggKo = []
-                                    , keggModule = []
-                                    , geneType = RRna rtype
-                                    }
-                                )
-                                (D.field "rRnaType" D.string)
-                                (D.field "contig" D.string)
-                                (D.field "start" D.int)
-                                (D.field "end" D.int)
-                                (D.field "strand" D.string)
-                            )
-                        )
                 newRRnaData =
-                    case D.decodeValue genesDecoder value of
+                    case D.decodeValue decodeRRnaGenes value of
                         Ok genes -> RRnaLoaded genes
                         Err _ ->
                             case D.decodeValue (D.field "error" D.string) value of
@@ -796,7 +716,7 @@ showARGs model mag =
                 }
 
 
--- EMAPPER TSV PARSING
+-- EMAPPER GENE DOWNLOAD
 
 encodeGeneForDownload : EMapperGene -> E.Value
 encodeGeneForDownload gene =
@@ -810,59 +730,6 @@ encodeGeneForDownload gene =
         , ( "preferredName", E.string gene.preferredName )
         , ( "keggKo", E.list E.string gene.keggKo )
         ]
-
-
-parseEMapperTsv : String -> Result String (List EMapperGene)
-parseEMapperTsv tsv =
-    let
-        lines = String.lines tsv
-            |> List.filter (\l -> not (String.isEmpty (String.trim l)))
-    in
-    case lines of
-        [] -> Err "Empty TSV"
-        _ :: dataLines ->
-            let
-                parsed = List.filterMap parseTsvLine dataLines
-            in
-            if List.isEmpty parsed then
-                Err "No valid data rows found"
-            else
-                Ok parsed
-
-
-parseTsvLine : String -> Maybe EMapperGene
-parseTsvLine line =
-    let
-        splitCommas s =
-            if s == "-" then []
-            else String.split "," s
-    in
-    case String.split "\t" line of
-        seqid :: contig :: startStr :: endStr :: strand :: cogCat :: prefName :: rest ->
-            case ( String.toInt startStr, String.toInt endStr ) of
-                ( Just start, Just end ) ->
-                    let
-                        keggKo = case rest of
-                            ko :: _ -> splitCommas ko
-                            _ -> []
-                        keggModule = case rest of
-                            _ :: km :: _ -> splitCommas km
-                            _ -> []
-                    in
-                    Just
-                        { seqid = seqid
-                        , contig = contig
-                        , start = start
-                        , end = end
-                        , strand = strand
-                        , cogCategory = if cogCat == "-" then "" else cogCat
-                        , preferredName = if prefName == "-" then "" else prefName
-                        , keggKo = keggKo
-                        , keggModule = keggModule
-                        , geneType = ProteinCoding
-                        }
-                _ -> Nothing
-        _ -> Nothing
 
 
 -- GENOME MAP VISUALIZATION

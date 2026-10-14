@@ -224,23 +224,9 @@ export const onReady = ({ app, env }) => {
       }
       text += decoder.decode();
 
-      // Parse FASTA headers: >{type}::{contig}:{start}-{end}({strand})
-      const genes = [];
-      const headerRegex = /^>(\w+)::(.+):(\d+)-(\d+)\(([+-])\)\s*$/;
-      for (const line of text.split('\n')) {
-        if (!line.startsWith('>')) continue;
-        const match = line.match(headerRegex);
-        if (match) {
-          genes.push({
-            rRnaType: match[1],
-            contig: match[2],
-            start: parseInt(match[3], 10),
-            end: parseInt(match[4], 10),
-            strand: match[5]
-          });
-        }
-      }
-      app.ports.receiveRRnaGenes.send({ genes });
+      // FASTA headers are parsed on the Elm side (Barrnap.parseHeader)
+      const headers = text.split('\n').filter(line => line.startsWith('>'));
+      app.ports.receiveRRnaGenes.send({ headers });
     } catch (err) {
       app.ports.receiveRRnaGenes.send({ error: err.message || String(err) });
     }
