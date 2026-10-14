@@ -183,12 +183,13 @@ export const onReady = ({ app, env }) => {
   });
 
   app.ports.requestGeneSequence.subscribe(async function(request) {
+    // seqid is echoed back so Elm can drop replies for a gene that is no longer selected
+    const { magId, contig, start, end, strand, seqid, skipTranslation } = request;
     try {
-      const { magId, contig, start, end, strand, seqid, skipTranslation } = request;
       const contigs = await fetchFasta(magId);
       const contigSeq = contigs.get(contig);
       if (!contigSeq) {
-        app.ports.receiveGeneSequence.send({ error: `Contig ${contig} not found in FASTA` });
+        app.ports.receiveGeneSequence.send({ seqid, error: `Contig ${contig} not found in FASTA` });
         return;
       }
       // Coordinates are 1-based
@@ -197,9 +198,9 @@ export const onReady = ({ app, env }) => {
         dna = reverseComplement(dna);
       }
       const protein = skipTranslation ? '' : translateDNA(dna);
-      app.ports.receiveGeneSequence.send({ dna, protein });
+      app.ports.receiveGeneSequence.send({ seqid, dna, protein });
     } catch (err) {
-      app.ports.receiveGeneSequence.send({ error: err.message || String(err) });
+      app.ports.receiveGeneSequence.send({ seqid, error: err.message || String(err) });
     }
   });
 

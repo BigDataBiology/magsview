@@ -297,31 +297,36 @@ update msg model =
         GeneSequenceReceived value ->
             let
                 resultDecoder =
-                    D.map2 GeneSequenceData
-                        (D.field "dna" D.string)
-                        (D.field "protein" D.string)
+                    D.oneOf
+                        [ D.map Ok
+                            (D.map2 GeneSequenceData
+                                (D.field "dna" D.string)
+                                (D.field "protein" D.string)
+                            )
+                        , D.map Err (D.field "error" D.string)
+                        ]
+
                 newState =
-                    case D.decodeValue resultDecoder value of
-                        Ok seqData ->
-                            case model.geneSequence of
-                                GeneSequenceLoading gene ->
-                                    GeneSequenceLoaded gene seqData
-                                _ ->
-                                    model.geneSequence
-                        Err err ->
-                            case D.decodeValue (D.field "error" D.string) value of
-                                Ok errorMsg ->
-                                    case model.geneSequence of
-                                        GeneSequenceLoading gene ->
-                                            GeneSequenceError gene errorMsg
-                                        _ ->
-                                            model.geneSequence
-                                Err _ ->
-                                    case model.geneSequence of
-                                        GeneSequenceLoading gene ->
-                                            GeneSequenceError gene (D.errorToString err)
-                                        _ ->
-                                            model.geneSequence
+                    case model.geneSequence of
+                        GeneSequenceLoading gene ->
+                            -- Replies for a previously clicked gene can arrive after
+                            -- the user has selected another one; ignore them
+                            if D.decodeValue (D.field "seqid" D.string) value /= Ok gene.seqid then
+                                model.geneSequence
+
+                            else
+                                case D.decodeValue resultDecoder value of
+                                    Ok (Ok seqData) ->
+                                        GeneSequenceLoaded gene seqData
+
+                                    Ok (Err errorMsg) ->
+                                        GeneSequenceError gene errorMsg
+
+                                    Err err ->
+                                        GeneSequenceError gene (D.errorToString err)
+
+                        _ ->
+                            model.geneSequence
             in
             ( { model | geneSequence = newState }, Effect.none )
 
