@@ -1,32 +1,54 @@
 # Adapting MAGs View to a different MAG catalog
 
 The app ships with a baked-in set of MAG metadata (the table on the Genomes page) and
-per-genome detail JSON files (used on each genome detail page). To swap in another
-catalog, update both pieces of data so they stay in sync.
+per-genome detail JSON files (used on each genome detail page). Gene annotations and
+genome sequences are fetched at runtime from a remote server. To swap in another
+catalog, update all three pieces so they stay in sync.
 
 ## 1) Prepare the MAG metadata CSV
 
 The genome table is powered by a CSV string embedded in `src/Data/Blobs/MAGs.elm`.
-Create a CSV file with the following header row and columns:
+This module is generated from `data/magsdata.csv` by `scripts/generate-mags-blob.py`;
+do not edit it by hand.
+
+`data/magsdata.csv` is the catalogue table, with one row per MAG and the following
+header row:
 
 ```
-id,samples_id,taxonomy,completeness,contamination,genome_size,#16s_rrna,#5s_rrna,#23s_rrna,#trna,nr_contigs,nr_genes,is_representative,binning_tool,assembly_method,comment,file_size,file_sha256
+Bin ID,Representative,Completeness,Contamination,Genome Size,Quality,Nr contigs,Classification,GTDBtk fastani Ref,16S rRNA,23S rRNA,5S rRNA,16S partial,23S partial,5S partial,Unique tRNAs,Total tRNAs,MIMAG,Sample,Original ID
 ```
 
-Notes:
-- `samples_id` accepts comma-separated sample identifiers (e.g., `S001,S002`).
-- `is_representative` should be `True` or `False` (capitalized) to match the Elm decoder.
-- Numeric columns must be parseable as numbers; leave `comment` empty if not applicable.
+The columns used by the generator are:
 
-Once the CSV looks correct, replace the string literal assigned to `magsBlob` in
-`src/Data/Blobs/MAGs.elm` with the new CSV content (keep the surrounding
-`String.trim """ ... """` structure intact). The `LoadData.loadData` helper will parse
-it at startup.
+| Column | Used as |
+| --- | --- |
+| `Bin ID` | MAG ID (a `.fna.gz` suffix is stripped, e.g., `SHD1_0222.fna.gz` → `SHD1_0222`) |
+| `Sample` | Sample the MAG was recovered from |
+| `Classification` | Taxonomy, as a GTDB-style string (`d__Bacteria;p__...;s__...`) |
+| `Completeness`, `Contamination` | Quality estimates (numbers) |
+| `Genome Size`, `Nr contigs` | Integers |
+| `16S rRNA`, `16S partial`, `23S rRNA`, `23S partial`, `5S rRNA`, `5S partial` | rRNA counts; complete and partial copies are added together. May be written as floats (`6.0`) or left empty (counted as 0) |
+| `Unique tRNAs` | Number of tRNAs (integer) |
+| `Representative` | Must be `Yes` or `No` |
+
+The other columns are ignored. The binning tool and assembly method are constants
+(`BINNING_TOOL` and `ASSEMBLY_METHOD`) at the top of `scripts/generate-mags-blob.py`;
+change them if your catalogue was built differently. MAG IDs must be unique.
+
+Once the CSV is in place, regenerate the Elm module:
+
+```bash
+scripts/generate-mags-blob.py              # rewrite src/Data/Blobs/MAGs.elm
+scripts/generate-mags-blob.py --check      # only check that it is up to date
+scripts/generate-mags-blob.py other.csv    # use a CSV in another location
+```
+
+`LoadData.loadData` parses the embedded CSV at startup.
 
 ## 2) Add per-genome JSON files
 
 Each genome detail page fetches `/genome-data/<MAG_ID>.json` from the `static/genome-data`
-folder. For every `id` in the CSV, create a matching JSON file named
+folder. For every MAG in the CSV, create a matching JSON file named
 `<MAG_ID>.json` with this structure:
 
 ```json
@@ -49,16 +71,41 @@ folder. For every `id` in the CSV, create a matching JSON file named
 }
 ```
 
-You can include multiple entries in the `16S` and `ARGs` arrays. Make sure the JSON is
-compact or pretty-printed—Elm’s decoder only depends on the field names and types.
+You can include multiple entries in the `16S` and `ARGs` arrays. The JSON can be
+compact or pretty-printed: Elm's decoder only depends on the field names and types.
 
-## 3) Verify locally
+## 3) Point to the remote data
 
-After updating the CSV and JSON files:
+Dataset naming (`datasetName`, `datasetTag`, `datasetSlug`) and the URLs of remotely
+hosted files are set in `src/Data/Info.elm`. The app fetches, for each MAG:
+
+- the genome FASTA (`mkFASTALink`), used to extract gene sequences in the browser;
+- the eggNOG-mapper summary TSV (`mkEMapperSummaryLink`), used for the genome map and
+  gene details (see [emapper-summary-tsv.md](emapper-summary-tsv.md) for the format);
+
+and links to the full eggNOG-mapper annotations (`mkENOGLink`) and barrnap rRNA
+predictions (`mkBarrnapLink`) for download. Update `baseURL` and these builders to
+match your server layout, and update the README text and citation in `mkReadmeFile`,
+which is included in bulk downloads.
+
+The hidden `/healthcheck` page checks whether these remote resources are available.
+
+## 4) Verify
+
+Check that the metadata and the JSON files are consistent:
+
+```bash
+scripts/check-mags-data.py
+```
+
+This checks that the embedded CSV has the columns and types the Elm decoder expects,
+that every MAG has a JSON file (and vice versa), that every JSON file has the expected
+structure, and that the number of 16S sequences in each JSON file matches the 16S rRNA
+count in the CSV.
+
+Then, check the site itself:
 
 1. Run `npx elm-land server` to rebuild the site.
-2. Visit `/genomes` and click into a genome to ensure the metadata and ARG/16S sections
-   render without parse errors.
-
-Keep the CSV and JSON files in sync: every MAG listed in the CSV should have a matching
-JSON file, and vice versa.
+2. Visit `/genomes` and `/taxonomy`, and click into a genome to make sure the metadata,
+   genome map, and ARG/16S sections render without errors.
+3. Visit `/healthcheck` to confirm that the remote files are reachable.
