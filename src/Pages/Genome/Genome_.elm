@@ -472,7 +472,7 @@ showMag model mag =
                                     [ Html.text (printableTaxonomy mag.taxonomy)
                                     ]
                                 , Html.text " in our dataset."
-                                , mkTooltipQuestionMark ("The representative genome is the best genome in our data.")
+                                , mkTooltipQuestionMark ("The representative genome is the best genome in our data. Species were defined by clustering the MAGs with dRep at 95% average nucleotide identity (ANI).")
                                 ]
                             ]
                         else
@@ -489,7 +489,7 @@ showMag model mag =
                                 , Html.text " and "
                                 , Html.em [] [Html.text (String.fromFloat rep.contamination ++ "% contamination")]
                                 , Html.text "."
-                            ,mkTooltipQuestionMark ("The representative genome is the best genome in our data in terms of QC stats.")
+                            ,mkTooltipQuestionMark ("The representative genome is the best genome in our data in terms of QC stats. Species were defined by clustering the MAGs with dRep at 95% average nucleotide identity (ANI).")
                             ]
                     )
             , Html.p []
@@ -513,7 +513,7 @@ showMag model mag =
            , Html.p []
                 [ Html.text "ARGs are predicted using RGI (Resistance Gene Identifier) based on the "
                 , Html.a [ HtmlAttr.href "https://card.mcmaster.ca/" ] [ Html.text "Comprehensive Antibiotic Resistance Database (CARD)" ]
-                , Html.text ". Results were mapped to "
+                , Html.text ". Only Strict and Perfect hits with at least 90% identity and 90% coverage are shown. Results were mapped to "
                 , Html.a [ HtmlAttr.href "https://genepi.food.dtu.dk/resfinder"]
                         [ Html.text "ResFinder" ]
                 , Html.text " using "

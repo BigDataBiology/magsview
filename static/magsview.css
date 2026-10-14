@@ -217,3 +217,13 @@ A.microbeAtlasLink {
   background-color: #fafbfc;
 }
 
+
+/* Tables written in Markdown (the Bootstrap ones have the .table class) */
+main table:not(.table) {
+  margin-bottom: 1em;
+}
+
+main table:not(.table) td {
+  padding: 0.2em 1.5em 0.2em 0;
+  vertical-align: top;
+}
