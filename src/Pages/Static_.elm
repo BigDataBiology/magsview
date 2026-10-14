@@ -55,12 +55,11 @@ described in [our preprint](/manuscript) (Cuscó et al., bioRxiv 2025).
 
 ### The cohort
 
-We collected a fresh fecal sample from each of 51 pet dogs living in
-Shanghai (China), plus one biological replicate. The dogs share an urban,
-indoor lifestyle but differ in age, size, breed, diet and habits. Their owners
-answered a questionnaire covering over 50 lifestyle, health and diet
-variables. Nineteen of the dogs came from eight households with more than one
-sampled dog.
+We collected a fresh fecal sample from 51 pet dogs living in Shanghai (China).
+The dogs share an urban, indoor lifestyle but differ in age, size, breed, diet
+and habits. Their owners answered a questionnaire covering over 50 lifestyle,
+health and diet variables. Nineteen of the dogs came from eight households with
+more than one sampled dog.
 
 ### How the genomes were built
 

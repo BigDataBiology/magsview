@@ -66,18 +66,7 @@ built gene catalogs (including a catalog of putative small proteins).
 | **Sequencing** | At least 20 Gbp of Nanopore and 20 Gbp of Illumina data per sample (about 1,600 Gbp and 1,000 Gbp in total) |
 | **MAGs** | 2,676: 1,928 near-finished, 16 high-quality and 732 medium-quality |
 | **Species** | 320 species-level clusters (95% ANI), 102 of which are not in GTDB (r214) |
-| **Circular extrachromosomal elements** | 185 (58 plasmids, 30 viruses and 97 uncategorized) |
-| **Gene catalogue** | 1,470,802 non-redundant genes (95% nucleotide identity) |
-| **Small protein catalogue** | 403,491 non-redundant small ORFs (273,065 clusters at 90% amino acid identity) |
 
-_Near-finished_ MAGs meet every MIMAG high-quality criterion: over 90%
-completeness, under 5% contamination, the 5S, 16S and 23S rRNA genes, and at
-least 18 of the 20 standard tRNAs. _High-quality_ MAGs meet the completeness
-and contamination thresholds but miss at least one of the other criteria, and
-_medium-quality_ MAGs have over 50% completeness and under 10% contamination.
-In this site's genome table, "High" covers both near-finished and high-quality
-MAGs. Over 80% of the 320 species have a near-finished MAG as their
-representative genome.
 
 ### Highlights from the study
 
@@ -91,23 +80,22 @@ representative genome.
 - **A core of shared species.** Four Lachnospiraceae species were found in
   almost every dog: _Blautia hansenii_, _Enterocloster_ sp001517625,
   _Faecalimonas umbilicata_ and _Ruminococcus B gnavus_.
+- **Sharing within households.** Of the 51 dogs, 19 came from 8 multi-dog
+  households. Dogs in the same household shared more bacterial strains and
+  extrachromosomal elements than dogs from different households.
 - **Resistance genes on mobile elements.** We found 253 unique antibiotic
   resistance genes, most often for tetracyclines, aminoglycosides and
   lincosamides. Ten circular elements carry resistance genes. These include
   two elements with the β-lactamase OXA-85, which had previously been reported
   only on bacterial chromosomes, and a putative _E. coli_ plasmid carrying
   TEM-1.
-- **Sharing within households.** Of the 51 dogs, 19 came from 8 multi-dog
-  households. Dogs in the same household shared more bacterial strains and
-  extrachromosomal elements than dogs from different households.
-- **Where dogs live matters more than geography.** Pet dogs from China, Germany,
+- **How dogs live matters more than geography.** Pet dogs from China, Germany,
   South Africa and the USA have similar gut microbiomes. Dogs living in
   colonies (such as research facilities) form a distinct group, with higher
   diversity and more _Bifidobacterium globosum_ and _Limosilactobacillus
-  reuteri_ (possibly reflecting probiotic use). This
-  matches the read mapping rates to our catalogue: a median of over 90% for
-  pet dogs, over 86% for colony dogs and over 75% for shelter or free-roaming
-  dogs.
+  reuteri_ (possibly reflecting probiotic use). This matches the read mapping
+  rates to our catalogue: a median of over 90% for pet dogs, over 86% for
+  colony dogs and over 75% for shelter or free-roaming dogs.
 
 ### Using this site
 
