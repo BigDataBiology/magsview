@@ -23,7 +23,7 @@ import DataModel exposing (MAG)
 import Layouts
 import GenomeStats exposing (printableTaxonomy, showTaxon)
 import Utils exposing (mkTooltipQuestionMark, showWithCommas, legendItem)
-import Data.Info exposing (mkFASTALink, mkENOGLink, mkEMapperSummaryLink)
+import Data.Info exposing (mkFASTALink, mkENOGLink, mkEMapperSummaryLink, mkBarrnapLink)
 import GeneSequence
 import EMapper exposing (EMapperGene, GeneType(..), parseEMapperTsv)
 import GenomeData exposing (MAGData, MicrobeAtlasMatch, decodeMAGData)
@@ -136,7 +136,7 @@ cmd0 magid =
             )
         , Effect.sendCmd
             (GeneSequence.requestRRnaGenes
-                (E.object [ ( "magId", E.string magid ) ])
+                (E.object [ ( "url", E.string (mkBarrnapLink magid) ) ])
             )
         ]
 
@@ -249,6 +249,7 @@ update msg model =
                         (GeneSequence.downloadGeneFasta
                             (E.object
                                 [ ( "magId", E.string model.magId )
+                                , ( "fastaUrl", E.string (mkFASTALink model.magId) )
                                 , ( "format", E.string format )
                                 , ( "genes", E.list encodeGeneForDownload genes )
                                 ]
@@ -340,7 +341,7 @@ selectGene gene model =
     , Effect.sendCmd
         (GeneSequence.requestGeneSequence
             (E.object
-                [ ( "magId", E.string model.magId )
+                [ ( "fastaUrl", E.string (mkFASTALink model.magId) )
                 , ( "contig", E.string gene.contig )
                 , ( "start", E.int gene.start )
                 , ( "end", E.int gene.end )

@@ -11,7 +11,7 @@ export const flags = () => {
 // Here you can work with `app.ports` to send messages
 // to your Elm application, or subscribe to incoming
 // messages from Elm
-// FASTA cache: magId -> Map<contigName, sequence>
+// FASTA cache: url -> Map<contigName, sequence>
 const fastaCache = new Map();
 // In-flight fetches to avoid duplicate requests
 const fastaFetching = new Map();
@@ -42,24 +42,24 @@ function gunzipText(response) {
   return new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).text();
 }
 
-async function fetchFasta(magId) {
-  if (fastaCache.has(magId)) {
-    return fastaCache.get(magId);
+// URLs are built on the Elm side (Data.Info) and passed in the port payloads
+async function fetchFasta(url) {
+  if (fastaCache.has(url)) {
+    return fastaCache.get(url);
   }
-  if (fastaFetching.has(magId)) {
-    return fastaFetching.get(magId);
+  if (fastaFetching.has(url)) {
+    return fastaFetching.get(url);
   }
-  const url = `https://sh-dog-mags-data.big-data-biology.org/ShanghaiDogsMAGs/${magId}.fna.gz`;
   const promise = (async () => {
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Failed to fetch FASTA: ${response.status}`);
     }
     const contigs = parseFasta(await gunzipText(response));
-    fastaCache.set(magId, contigs);
+    fastaCache.set(url, contigs);
     return contigs;
-  })().finally(() => fastaFetching.delete(magId));
-  fastaFetching.set(magId, promise);
+  })().finally(() => fastaFetching.delete(url));
+  fastaFetching.set(url, promise);
   return promise;
 }
 
@@ -138,8 +138,8 @@ export const onReady = ({ app, env }) => {
 
   app.ports.downloadGeneFasta.subscribe(async function(request) {
     try {
-      const { magId, genes, format } = request;
-      const contigs = await fetchFasta(magId);
+      const { magId, fastaUrl, genes, format } = request;
+      const contigs = await fetchFasta(fastaUrl);
       const lines = [];
       for (const gene of genes) {
         const contigSeq = contigs.get(gene.contig);
@@ -177,9 +177,9 @@ export const onReady = ({ app, env }) => {
 
   app.ports.requestGeneSequence.subscribe(async function(request) {
     // seqid is echoed back so Elm can drop replies for a gene that is no longer selected
-    const { magId, contig, start, end, strand, seqid, skipTranslation } = request;
+    const { fastaUrl, contig, start, end, strand, seqid, skipTranslation } = request;
     try {
-      const contigs = await fetchFasta(magId);
+      const contigs = await fetchFasta(fastaUrl);
       const contigSeq = contigs.get(contig);
       if (!contigSeq) {
         app.ports.receiveGeneSequence.send({ seqid, error: `Contig ${contig} not found in FASTA` });
@@ -199,8 +199,7 @@ export const onReady = ({ app, env }) => {
 
   app.ports.requestRRnaGenes.subscribe(async function(request) {
     try {
-      const { magId } = request;
-      const url = `https://sh-dog-mags-data.big-data-biology.org/ShanghaiDogsMAGAnnotations/Barrnap/${magId}_ribosomal.fna.gz`;
+      const { url } = request;
       const response = await fetch(url);
       if (!response.ok) {
         app.ports.receiveRRnaGenes.send({ error: `Failed to fetch rRNA data: ${response.status}` });
