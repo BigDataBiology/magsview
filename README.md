@@ -10,10 +10,10 @@ MAGs View powers the following catalogues:
 
 - **[Shanghai Dog Gut MAGs](https://sh-dog-mags.big-data-biology.org/)**: MAGs
   recovered from long-read metagenomes of pet dogs in Shanghai. Described in
-  Cuscó _et al._, [Capturing global pet dog gut microbial diversity and hundreds
-  of near-finished bacterial genomes by using long-read metagenomics in a
-  Shanghai cohort](https://www.biorxiv.org/content/10.1101/2025.09.17.676595v1)
-  (bioRxiv 2025).
+  Cuscó _et al._, [A long-read metagenomic catalog of near-finished bacterial
+  genomes from Shanghai pet dogs captures gut microbial diversity across
+  geographically distinct cohorts](https://doi.org/10.1186/s13059-026-04360-z)
+  (_Genome Biology_ 2026).
 - **[Urban Soil MAGs](https://urban-soil-mags.big-data-biology.org/)**: MAGs
   recovered from long-read metagenomes of urban green-space soils in Shanghai
   and Nanjing. Described in Duan _et al._, [Long-read metagenomic sequencing

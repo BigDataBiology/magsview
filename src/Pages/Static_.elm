@@ -51,7 +51,7 @@ contentAbout = """
 
 This project was led by _Anna Cuscó_ (Fudan University) in the [Big Data
 Biology Lab](https://big-data-biology.org), led by _Luis Pedro Coelho_. It is
-described in [our preprint](/manuscript) (Cuscó et al., bioRxiv 2025).
+described in [our paper](/manuscript) (Cuscó et al., _Genome Biology_ 2026).
 
 ### The cohort
 
@@ -193,30 +193,37 @@ contentManuscript : String
 contentManuscript = """
 ## Manuscript
 
-> _Capturing global pet dog gut microbial diversity and hundreds of
-> near-finished bacterial genomes by using long-read metagenomics in a Shanghai
-> cohort_ by Anna Cuscó, Yiqian Duan, Fernando Gil, Alexei Chklovski, Nithya
-> Kruthi, Shaojun Pan, Sofia Forslund, Susanne Lau, Ulrike  Löber, Xing-Ming
-> Zhao, and Luis Pedro Coelho (bioRxiv PREPRINT 2025,
-> [DOI:10.1101/2025.09.17.676595](https://doi.org/10.1101/2025.09.17.676595))
+> _A long-read metagenomic catalog of near-finished bacterial genomes from
+> Shanghai pet dogs captures gut microbial diversity across geographically
+> distinct cohorts_ by Anna Cuscó, Yiqian Duan, Fernando Gil, Alex Chklovski,
+> Nithya Kruthi, Shaojun Pan, Sofia Forslund, Susanne Lau, Ulrike Löber,
+> Xing-Ming Zhao, and Luis Pedro Coelho. _Genome Biology_ (2026),
+> [DOI:10.1186/s13059-026-04360-z](https://doi.org/10.1186/s13059-026-04360-z)
 
 ### Summary
 
-Pet dogs are considered part of the family, and understanding their gut
-microbiomes can provide insights into both animal and household health. Most
-comprehensive studies, however, relied on short-read sequencing, resulting in
-fragmented MAGs that miss mobile elements, antimicrobial-resistance genes, and
-ribosomal genes. Here, we applied deep long-read metagenomics (polished with
-short-reads) to fecal samples from 51 urban pet dogs in Shanghai, generating
-2,676 MAGs—representing 320 bacterial species—, of which ∼72% achieved
-near-finished quality, often improving on the corresponding reference public
-genome. Comparisons with external datasets showed that our Shanghai-based MAG
-catalog is representative of pet dogs worldwide (median read mapping of >90%).
-Moreover, we recovered circular extrachromosomal elements, including those
-linked to antimicrobial resistance, which were also detected in external dog
-gut datasets. In conclusion, we provide a high-quality reference resource and
-demonstrate the power of deep long-read metagenomics to resolve microbial
-diversity in complex host-associated microbiomes.
+**Background:** Pet dogs are considered part of the family, and understanding
+their gut microbiomes can provide insights into both animal and household
+health. Most comprehensive studies, however, relied on short-read sequencing,
+resulting in fragmented metagenome-assembled genomes (MAGs) that miss mobile
+genetic elements, antimicrobial resistance genes, and ribosomal genes.
+
+**Results:** We apply deep long-read metagenomics, polished with short reads,
+to fecal samples from 51 urban pet dogs in Shanghai, generating 2,676 MAGs
+representing 320 bacterial species. Approximately 72% of these MAGs achieve
+near-finished quality and often improve on the corresponding publicly
+available reference genomes. Comparisons with external datasets show that our
+Shanghai-based MAG catalog is representative of urban pet dogs worldwide, with
+a median read-mapping rate above 90%. Moreover, we retrieve 185 nonredundant
+clusters of circular extrachromosomal elements, including elements linked to
+antimicrobial resistance, which are also detected in external dog gut
+datasets. Finally, long-read metagenomics reveals a dynamic genome
+architecture, including a putative secondary chromosome in a _Fusobacterium_
+species.
+
+**Conclusions:** We provide a high-quality reference resource and demonstrate
+the power of deep long-read metagenomics to resolve microbial diversity and
+genome architecture in complex host-associated microbiomes.
 
 ### Citing this resource
 

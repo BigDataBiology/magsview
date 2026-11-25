@@ -28,12 +28,12 @@ content : String
 content = """
 ## Shanghai dog gut microbiome
 
-> _Capturing global pet dog gut microbial diversity and hundreds of
-> near-finished bacterial genomes by using long-read metagenomics in a Shanghai
-> cohort_ by Anna Cuscó, Yiqian Duan, Fernando Gil, Alexei Chklovski, Nithya
-> Kruthi, Shaojun Pan, Sofia Forslund, Susanne Lau, Ulrike  Löber, Xing-Ming
-> Zhao, and Luis Pedro Coelho (bioRxiv PREPRINT 2025,
-> [DOI:10.1101/2025.09.17.676595](https://doi.org/10.1101/2025.09.17.676595))
+> _A long-read metagenomic catalog of near-finished bacterial genomes from
+> Shanghai pet dogs captures gut microbial diversity across geographically
+> distinct cohorts_ by Anna Cuscó, Yiqian Duan, Fernando Gil, Alex Chklovski,
+> Nithya Kruthi, Shaojun Pan, Sofia Forslund, Susanne Lau, Ulrike Löber,
+> Xing-Ming Zhao, and Luis Pedro Coelho. _Genome Biology_ (2026),
+> [DOI:10.1186/s13059-026-04360-z](https://doi.org/10.1186/s13059-026-04360-z)
 
 Dogs are part of the family, and learning about their gut microbes can tell us
 a lot about both their health and the household they live in. Most studies of
